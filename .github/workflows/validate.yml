@@ -1,0 +1,26 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  plugin:
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.13"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: python3 -m unittest discover -s tests -v
+      - run: python3 -m unittest discover -s plugins/cliproxy-models/scripts -p 'test_*.py' -v
+      - run: python3 -m py_compile plugins/cliproxy-models/scripts/*.py
+      - run: python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
+      - run: python3 -m json.tool plugins/cliproxy-models/.codex-plugin/plugin.json >/dev/null

@@ -1,81 +1,81 @@
-<p align="center"><strong>Codex CLI</strong> is a coding agent from OpenAI that runs locally on your computer.
-<p align="center">
-  <img src="https://github.com/openai/codex/blob/main/.github/codex-cli-splash.png" alt="Codex CLI splash" width="80%" />
-</p>
-</br>
-If you want Codex in your code editor (VS Code, Cursor, Windsurf), <a href="https://developers.openai.com/codex/ide">install in your IDE.</a>
-</br>If you want the desktop app experience, run <code>codex app</code> or visit <a href="https://chatgpt.com/codex?app-landing-page=true">the Codex App page</a>.
-</br>If you are looking for the <em>cloud-based agent</em> from OpenAI, <strong>Codex Web</strong>, go to <a href="https://chatgpt.com/codex">chatgpt.com/codex</a>.</p>
+# CLIProxyAPI Models for Codex
 
----
+A standalone Codex plugin marketplace that adds exact **Grok 4.6** and **Gemini 3.7 Flash** profiles through one CLIProxyAPI model provider.
 
-## Quickstart
+CLIProxyAPI remains authoritative for all upstream accounts, OAuth sessions, quota balancing, health checks, retries, and failover. Codex receives one endpoint and stable aliases; this plugin never copies account identifiers or API-key values into `~/.codex/config.toml`.
 
-### Installing and running Codex CLI
+## Install
 
-Run the following on Mac or Linux to install Codex CLI:
+Export the local proxy contract exactly once in the environment that launches Codex:
 
-```shell
-curl -fsSL https://chatgpt.com/codex/install.sh | sh
+```bash
+export CLIPROXY_URL=http://127.0.0.1:8317
+export CLIPROXY_API_KEY="$(<"$HOME/.cli-proxy-api/.proxy-api-key")"
 ```
 
-Run the following on Windows to install Codex CLI:
+Add this repository as a marketplace and install its plugin:
 
-```shell
-powershell -ExecutionPolicy ByPass -c "irm https://chatgpt.com/codex/install.ps1 | iex"
+```bash
+codex plugin marketplace add vai8havchoudhary/codex
+codex plugin add cliproxy-models@cliproxy
 ```
 
-The standalone installers download from `https://releases.openai.com/codex` by default and fall back to GitHub Releases if a metadata or asset download is unavailable. To force GitHub Releases, set `CODEX_INSTALLER_USE_RELEASES_OPENAI_COM` to `false` (`0` and `no` are also accepted):
+Start a new Codex session after installation. A Codex Desktop process launched from Finder may not inherit terminal exports; launch it from the configured terminal or set the same variables in its launch environment.
 
-```shell
-curl -fsSL https://chatgpt.com/codex/install.sh | CODEX_INSTALLER_USE_RELEASES_OPENAI_COM=false sh
+## Configure the models
+
+Ask the installed plugin:
+
+```text
+@cliproxy-models Set up CLIProxyAPI models and use Grok 4.6 by default.
 ```
 
-```powershell
-$env:CODEX_INSTALLER_USE_RELEASES_OPENAI_COM='false'; irm https://chatgpt.com/codex/install.ps1 | iex
+The plugin validates both model-catalog contracts before changing configuration:
+
+```text
+GET /v1/models
+GET /v1/models?client_version=...
 ```
 
-Codex CLI can also be installed via the following package managers:
+The repository checkout also exposes a direct entry point:
 
-```shell
-# Install using npm
-npm install -g @openai/codex
+```bash
+python3 plugins/cliproxy-models/scripts/plugin.py status
+python3 plugins/cliproxy-models/scripts/plugin.py setup grok
+python3 plugins/cliproxy-models/scripts/plugin.py use gemini
 ```
 
-```shell
-# Install using Homebrew
-brew install --cask codex
+Fully quit and reopen Codex Desktop after setup or switching.
+
+## Profiles
+
+```text
+cliproxy-grok-4-6
+cliproxy-gemini-3-7-flash
 ```
 
-Then simply run `codex` to get started.
+Both profiles reference one provider, `cliproxyapi`. Multiple upstream Grok and Gemini accounts remain entirely behind CLIProxyAPI.
 
-<details>
-<summary>You can also go to the <a href="https://github.com/openai/codex/releases/latest">latest GitHub Release</a> and download the appropriate binary for your platform.</summary>
+## Safety properties
 
-Each GitHub Release contains many executables, but in practice, you likely want one of these:
+- Exact-version admission only. Nearby variants such as `grok-4.60`, `grok-4.6.1`, marker-less `gemini-3.7`, and ambiguous aliases are refused.
+- An admitted alias must appear in both the OpenAI-compatible and Codex-compatible CLIProxyAPI catalogs.
+- Plain HTTP is accepted only for localhost and loopback endpoints. Remote endpoints require HTTPS.
+- `CLIPROXY_API_KEY` values are never printed or persisted; Codex stores only `env_key = "CLIPROXY_API_KEY"`.
+- Existing unrelated provider definitions are never repurposed.
+- Configuration writes are atomic, mode `0600`, timestamp-backed-up, post-validated, and byte-idempotent.
+- Plugin installation does not enumerate or alter CLIProxyAPI account files.
 
-- macOS
-  - Apple Silicon/arm64: `codex-aarch64-apple-darwin.tar.gz`
-  - x86_64 (older Mac hardware): `codex-x86_64-apple-darwin.tar.gz`
-- Linux
-  - x86_64: `codex-x86_64-unknown-linux-musl.tar.gz`
-  - arm64: `codex-aarch64-unknown-linux-musl.tar.gz`
+## Validate
 
-Each archive contains a single entry with the platform baked into the name (e.g., `codex-x86_64-unknown-linux-musl`), so you likely want to rename it to `codex` after extracting it.
+```bash
+python3 -m unittest discover -s tests -v
+python3 -m unittest discover -s plugins/cliproxy-models/scripts -p 'test_*.py' -v
+python3 -m py_compile plugins/cliproxy-models/scripts/*.py
+python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
+python3 -m json.tool plugins/cliproxy-models/.codex-plugin/plugin.json >/dev/null
+```
 
-</details>
+## Repository replacement
 
-### Using Codex with your ChatGPT plan
-
-Run `codex` and select **Sign in with ChatGPT**. We recommend signing into your ChatGPT account to use Codex as part of your Plus, Pro, Business, Edu, or Enterprise plan. [Learn more about what's included in your ChatGPT plan](https://help.openai.com/en/articles/11369540-codex-in-chatgpt).
-
-You can also use Codex with an API key, but this requires [additional setup](https://developers.openai.com/codex/auth#sign-in-with-an-api-key).
-
-## Docs
-
-- [**Codex Documentation**](https://developers.openai.com/codex)
-- [**Contributing**](./docs/contributing.md)
-- [**Installing & building**](./docs/install.md)
-- [**Open source fund**](./docs/open-source-fund.md)
-
-This repository is licensed under the [Apache-2.0 License](LICENSE).
+The previous Codex source-fork tree remains recoverable through Git history and the `archive/codex-upstream-20260828` branch. The current `main` branch is exclusively this plugin marketplace.

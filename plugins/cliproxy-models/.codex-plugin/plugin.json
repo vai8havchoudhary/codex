@@ -1,0 +1,44 @@
+{
+  "name": "cliproxy-models",
+  "version": "1.0.0",
+  "description": "Configure CLIProxyAPI-backed Grok 4.6 and Gemini 3.7 Flash models in Codex Desktop.",
+  "author": {
+    "name": "Vaibhav Choudhary",
+    "url": "https://github.com/vai8havchoudhary"
+  },
+  "homepage": "https://github.com/vai8havchoudhary/codex",
+  "repository": "https://github.com/vai8havchoudhary/codex",
+  "license": "MIT",
+  "keywords": [
+    "cliproxyapi",
+    "codex",
+    "grok",
+    "gemini",
+    "model-provider",
+    "multi-account"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "CLIProxyAPI Models",
+    "shortDescription": "Add Grok 4.6 and Gemini 3.7 Flash to Codex",
+    "longDescription": "Configure one CLIProxyAPI provider for Codex Desktop, validate both live model catalogs, and expose exact Grok 4.6 and Gemini 3.7 Flash profiles without copying upstream account credentials into Codex.",
+    "developerName": "Vaibhav Choudhary",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/vai8havchoudhary/codex",
+    "privacyPolicyURL": "https://github.com/vai8havchoudhary/codex/blob/main/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/vai8havchoudhary/codex/blob/main/TERMS.md",
+    "defaultPrompt": [
+      "Set up CLIProxyAPI models in Codex",
+      "Check my CLIProxyAPI model setup",
+      "Switch Codex to Gemini 3.7 Flash"
+    ],
+    "brandColor": "#111827",
+    "brandColorDark": "#E5E7EB",
+    "composerIcon": "./assets/composer-icon.svg"
+  }
+}
