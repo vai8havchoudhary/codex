@@ -1,66 +1,49 @@
 # Agent handbook
 
-This document is the implementation and release handbook for agents working on the CLIProxyAPI Models plugin.
+This document is the implementation and release handbook for agents working on the `cliproxy` Codex marketplace.
 
 ## Mission
 
-Expose exact CLIProxyAPI-backed Grok 4.6 and Gemini 3.7 Flash profiles in Codex while keeping all upstream account and credential authority inside CLIProxyAPI.
+Expose exact CLIProxyAPI-backed Grok 4.6 and Gemini 3.7 Flash routes in two places without moving account authority out of CLIProxyAPI:
 
-The repository is a standalone Codex marketplace:
+- `cliproxy-models`: Codex model profiles;
+- `hermes-moa`: Hermes Agent Mixture-of-Agents presets.
 
-```text
-.agents/plugins/marketplace.json
-plugins/cliproxy-models/
-```
-
-It is not a Codex application fork and must not accumulate Codex core patches.
+The repository is a standalone marketplace rooted at `.agents/plugins/marketplace.json` and `plugins/`. It must not accumulate Codex core patches or a second MoA runtime.
 
 ## Authority boundaries
 
 ### CLIProxyAPI owns
 
-- upstream Grok and Gemini accounts;
-- OAuth and session credentials;
+- upstream accounts and OAuth/session credentials;
 - account selection and load balancing;
 - quota, health, retry, and failover policy;
-- the model catalogs served at `/v1/models`.
+- stable model aliases and the `/v1/models` catalogs.
 
-### The plugin owns
+### `cliproxy-models` owns
 
-- validating the provider endpoint;
-- validating both the OpenAI-compatible and Codex-compatible model catalogs;
-- selecting exact stable aliases;
-- adding one `cliproxyapi` provider and two Codex profiles;
-- preserving and atomically updating `~/.codex/config.toml`;
-- status, setup, and default-model switching workflows.
+- endpoint/catalog/exact-alias admission;
+- one Codex provider plus two profiles;
+- transactional `~/.codex/config.toml` changes;
+- status, setup, and model switching.
 
-### The plugin must never own
+### `hermes-moa` owns
 
-- account discovery;
-- account-specific routes or providers;
+- Hermes executable/profile discovery;
+- one Hermes provider named `cliproxy`;
+- two built-in-MoA preset objects;
+- transactional Hermes config changes through `hermes config set`;
+- status, tuning, setup, activation, rollback, and post-validation.
+
+### No plugin owns
+
+- account discovery or account-specific routes;
 - upstream secret material;
-- CLIProxyAPI configuration mutation;
-- speculative fallback to nearby model versions.
-
-## Repository map
-
-| Path | Responsibility |
-|---|---|
-| `.agents/plugins/marketplace.json` | Marketplace identity, source path, install and auth policy |
-| `plugins/cliproxy-models/.codex-plugin/plugin.json` | Plugin version and Codex UI metadata |
-| `plugins/cliproxy-models/skills/cliproxy-models/SKILL.md` | Model-facing operating procedure and security rules |
-| `plugins/cliproxy-models/scripts/plugin.py` | Stable status/setup/use entry point |
-| `plugins/cliproxy-models/scripts/catalog.py` | Endpoint, catalog, provider, and exact-alias admission |
-| `plugins/cliproxy-models/scripts/config_edit.py` | Comment-preserving TOML rendering and atomic writes |
-| `plugins/cliproxy-models/scripts/install.py` | Transactional installer |
-| `plugins/cliproxy-models/commands/` | Codex slash-command guidance |
-| `SETUP.md` | User installation, upgrade, rollback, and troubleshooting |
-| `docs/RELEASING.md` | Maintainer release procedure |
-| `tests/` | Marketplace, documentation, and release-contract tests |
+- CLIProxyAPI mutation;
+- speculative fallback to nearby models;
+- an independent multi-agent execution engine.
 
 ## Runtime contract
-
-The supported launch environment is:
 
 ```bash
 export CLIPROXY_URL=http://127.0.0.1:8317
@@ -69,68 +52,69 @@ export CLIPROXY_API_KEY="$(<"$HOME/.cli-proxy-api/.proxy-api-key")"
 
 Rules:
 
-- Check whether `CLIPROXY_API_KEY` is set; never echo its value.
-- Accept plaintext HTTP only for `localhost`, `127.0.0.1`, or `::1`.
-- Normalize the provider base URL to exactly one `/v1` suffix.
-- Query both catalog shapes:
-  - OpenAI-compatible: `GET /v1/models`
-  - Codex-compatible: `GET /v1/models?client_version=...`
-- Admit an alias only when the same exact ID appears in both catalogs.
+- Check key presence; never echo its value.
+- Plain HTTP is loopback-only; remote endpoints require HTTPS.
+- Normalize exactly one `/v1` suffix.
+- Query `GET /v1/models` and `GET /v1/models?client_version=...`.
+- Admit the same exact model ID only when it appears in both catalogs.
 - Fail closed on absent, ambiguous, marker-less, or nearby versions.
-- Store only `env_key = "CLIPROXY_API_KEY"` in Codex configuration.
 
-## Required behavioral invariants
+## Hermes MoA design
 
-1. One provider, regardless of upstream account count.
-2. Exact Grok 4.6 and Gemini 3.7 Flash only.
-3. No secret values in source, output, config, backups, fixtures, or release artifacts.
-4. Existing unrelated providers are never repurposed.
-5. Existing CLIProxyAPI providers are reused only when their identity is unambiguous.
-6. Managed profiles are deterministic:
-   - `cliproxy-grok-4-6`
-   - `cliproxy-gemini-3-7-flash`
-7. A failed preflight performs no configuration write.
-8. A successful second application is byte-identical, byte-idempotent, and creates no new backup.
-9. Changed writes are atomic, mode `0600`, and recoverable through a timestamped backup.
-10. The plugin never reads or changes CLIProxyAPI account files.
+Hermes' built-in `moa` provider treats each preset as a selectable model. References run first and advise; the aggregator is the acting model that writes the final answer and performs tool calls.
 
-## Implementation workflow
+Owned route topology:
 
-Before editing:
+| Preset | Reference | Aggregator |
+|---|---|---|
+| `cliproxy-grok-led` | exact Gemini 3.7 Flash | exact Grok 4.6 |
+| `cliproxy-gemini-led` | exact Grok 4.6 | exact Gemini 3.7 Flash |
 
-1. Read `AGENTS.md`, this file, `SETUP.md`, and the relevant production/test files.
-2. Identify the authority boundary affected by the request.
-3. State whether the change affects catalog admission, provider selection, TOML mutation, plugin UX, or release metadata.
+Defaults:
 
-While editing:
+- `reference_max_tokens: 600`;
+- `max_tokens: 4096`;
+- `fanout: user_turn`;
+- `privacy_filter: display` unless an existing `full` policy is stronger;
+- `enabled: true`.
 
-- Prefer standard-library Python and deterministic data structures.
-- Keep error messages typed and actionable without exposing secrets.
-- Preserve the single entry point in `scripts/plugin.py`.
-- Do not add a second installer, second provider registry, or shell-only mutation path.
-- Add regression coverage for every new refusal or mutation rule.
+The plugin writes structured provider/preset objects through Hermes' own config CLI. It merges unrelated object fields, recognizes its routes by provider custody, refuses foreign collisions unless `--force`, skips equal values, validates exact post-write values, and restores exact original bytes on failure.
 
-After editing:
+## Repository map
 
-```bash
-python3 -m unittest discover -s tests -p 'test_*.py' -v
-python3 -m unittest discover -s plugins/cliproxy-models/scripts -p 'test_*.py' -v
-python3 -m compileall -q plugins/cliproxy-models/scripts tests
-python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
-python3 -m json.tool plugins/cliproxy-models/.codex-plugin/plugin.json >/dev/null
-```
+| Path | Responsibility |
+|---|---|
+| `.agents/plugins/marketplace.json` | Marketplace entries and policies |
+| `release.json` | Marketplace version and exact plugin-version map |
+| `plugins/cliproxy-models/` | Codex model provider/profile plugin |
+| `plugins/hermes-moa/` | Hermes built-in-MoA configuration plugin |
+| `plugins/*/.codex-plugin/plugin.json` | Plugin version and UI metadata |
+| `plugins/*/skills/` | Model-facing operating procedures |
+| `plugins/*/scripts/` | Standard-library implementation and tests |
+| `SETUP.md` | User operations |
+| `docs/RELEASING.md` | Release transaction |
+| `tests/` | Marketplace and release contracts |
 
-Report which gates actually ran and whether a live CLIProxyAPI/Codex Desktop smoke test was available.
+## Mutation requirements
+
+Every write path must:
+
+1. validate endpoint, environment, catalogs, and exact aliases first;
+2. detect foreign ownership before mutation;
+3. snapshot exact original bytes;
+4. use the target application's supported config surface;
+5. suppress/redact secret values in subprocess output;
+6. post-validate requested values;
+7. roll back exact bytes or remove a new partial file on failure;
+8. write a mode-`0600` timestamped backup only after a successful changed transaction;
+9. perform no write when already equal.
+
+## Validation
+
+Run the root test suite, every plugin script suite, Python compilation, JSON validation, and `git diff --check`. The Hermes suite uses a synthetic CLIProxy catalog and a fake Hermes executable; it proves real subprocess boundaries and exact rollback without needing user credentials.
+
+A live Hermes/CLIProxyAPI smoke gate is valuable but must be reported as unavailable when it was not executed.
 
 ## Release discipline
 
-- The plugin manifest is the version authority.
-- `CHANGELOG.md` must contain the same version and release date.
-- Release tags use `v<semantic version>`.
-- The tag-driven workflow must reject a tag that does not match the manifest.
-- Release archives must contain no key files, caches, backups, or generated local configuration.
-- Follow `docs/RELEASING.md`; do not create a tag or release unless explicitly requested.
-
-## Definition of done
-
-A change is done only when the repository invariants remain true, documentation matches the installed commands, focused tests cover the changed behavior, JSON and Python validation pass, and the resulting commit is identifiable.
+`release.json` is authoritative for the marketplace tag. Each mapped version must equal the corresponding plugin manifest. `CHANGELOG.md` must contain a dated marketplace version section. Release only from exact green `main`, using either an annotated `v<version>` tag or guarded `release/v<version>` branch. See `docs/RELEASING.md`.

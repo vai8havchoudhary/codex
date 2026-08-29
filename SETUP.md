@@ -1,76 +1,60 @@
 # Setup and operations
 
-This guide installs, verifies, upgrades, switches, rolls back, and removes the `cliproxy-models` Codex plugin.
+This guide installs and operates both plugins in the `cliproxy` Codex marketplace.
 
 ## 1. Prerequisites
 
-You need:
+Shared requirements:
 
-- Codex with the `codex plugin` marketplace commands;
+- Codex with `codex plugin` marketplace commands;
 - Python 3.11 or newer;
-- CLIProxyAPI listening locally or at an HTTPS endpoint;
+- CLIProxyAPI at a loopback HTTP endpoint or remote HTTPS endpoint;
 - a CLIProxyAPI access key;
 - exact Grok 4.6 and Gemini 3.7 Flash aliases exported by CLIProxyAPI.
 
-The plugin does not configure CLIProxyAPI accounts. Add and authenticate all upstream accounts in CLIProxyAPI first.
+`hermes-moa` additionally requires Hermes Agent with working `hermes config` and `hermes moa` commands. Configure and authenticate all upstream model accounts in CLIProxyAPI before using either plugin.
 
-## 2. Configure the launch environment
+## 2. Launch environment
 
-For the standard local CLIProxyAPI installation:
+For the standard local proxy:
 
 ```bash
 export CLIPROXY_URL=http://127.0.0.1:8317
 export CLIPROXY_API_KEY="$(<"$HOME/.cli-proxy-api/.proxy-api-key")"
 ```
 
-Do not echo `CLIPROXY_API_KEY`, add it to shell tracing, commit it, or paste it into Codex configuration.
-
-Confirm only that both variables are present:
+Confirm presence without revealing values:
 
 ```bash
 test -n "${CLIPROXY_URL:-}" && echo "CLIPROXY_URL is set"
 test -n "${CLIPROXY_API_KEY:-}" && echo "CLIPROXY_API_KEY is set"
 ```
 
-A Codex Desktop process launched outside this environment may not inherit the variables. Launch Codex from the configured environment or configure the same variables in the application launch environment. Fully quit the app before changing its launch environment.
+Do not echo the key, enable shell tracing around it, commit it, or paste it into Codex/Hermes configuration. Applications launched from Finder or another launcher may not inherit terminal exports; configure the same launch environment and fully restart the application.
 
-### Remote proxy endpoint
-
-Use HTTPS for non-loopback endpoints:
+Remote proxies must use HTTPS:
 
 ```bash
 export CLIPROXY_URL=https://proxy.example.com
-export CLIPROXY_API_KEY="$(<"$HOME/.cli-proxy-api/.proxy-api-key")"
 ```
 
-Plain HTTP is deliberately rejected unless the hostname is `localhost`, `127.0.0.1`, or `::1`.
+Plain HTTP is rejected unless the host is `localhost`, `127.0.0.1`, or `::1`.
 
-## 3. Install the marketplace and plugin
-
-Add the marketplace from this repository:
+## 3. Marketplace installation
 
 ```bash
 codex plugin marketplace add vai8havchoudhary/codex --ref main
+codex plugin list --marketplace cliproxy --available --json
 ```
 
-Install the plugin:
+Install the desired plugins:
 
 ```bash
 codex plugin add cliproxy-models@cliproxy
+codex plugin add hermes-moa@cliproxy
 ```
 
-Verify discovery:
-
-```bash
-codex plugin marketplace list --json
-codex plugin list --marketplace cliproxy --json
-```
-
-The marketplace name is `cliproxy`; the plugin name is `cliproxy-models`.
-
-## 4. Configure the model profiles
-
-Start a new Codex session and invoke the plugin.
+## 4. Configure Codex models
 
 Use Grok by default:
 
@@ -84,135 +68,172 @@ Use Gemini by default:
 @cliproxy-models Set up CLIProxyAPI models and use Gemini 3.7 Flash by default.
 ```
 
-The setup preflight checks:
-
-1. endpoint shape and transport safety;
-2. `CLIPROXY_API_KEY` presence;
-3. `GET /v1/models`;
-4. `GET /v1/models?client_version=...`;
-5. exact alias presence in both catalogs;
-6. existing Codex provider/profile collisions;
-7. generated TOML validity before writing.
-
-On success, the plugin creates or repairs:
-
-```text
-provider: cliproxyapi
-profile:  cliproxy-grok-4-6
-profile:  cliproxy-gemini-3-7-flash
-```
-
-The secret value is not written. Codex stores only:
+The plugin validates endpoint safety, key presence, both model catalogs, exact aliases, provider/profile collisions, and generated TOML before writing. It creates one Codex provider `cliproxyapi` and profiles `cliproxy-grok-4-6` and `cliproxy-gemini-3-7-flash`. Codex stores only:
 
 ```toml
 env_key = "CLIPROXY_API_KEY"
 ```
 
-Fully quit and reopen Codex Desktop after setup.
+Fully restart Codex Desktop and start a new thread after setup or switching.
 
-## 5. Verify status
-
-From Codex:
-
-```text
-@cliproxy-models Check my CLIProxyAPI model setup.
-```
-
-From a repository checkout:
+Direct commands from a checkout:
 
 ```bash
 python3 plugins/cliproxy-models/scripts/plugin.py status
-```
-
-A successful status check reports the provider ID and admitted model aliases without changing the active model or printing the API key.
-
-## 6. Switch the default model
-
-From Codex:
-
-```text
-@cliproxy-models Switch Codex to Grok 4.6.
-```
-
-or:
-
-```text
-@cliproxy-models Switch Codex to Gemini 3.7 Flash.
-```
-
-From a repository checkout:
-
-```bash
-python3 plugins/cliproxy-models/scripts/plugin.py use grok
+python3 plugins/cliproxy-models/scripts/plugin.py setup grok
 python3 plugins/cliproxy-models/scripts/plugin.py use gemini
 ```
 
-Start a new thread or reopen Codex Desktop after a successful switch.
+## 5. Configure Hermes Mixture of Agents
 
-## 7. Multiple matching aliases
-
-CLIProxyAPI should ideally expose one stable alias for each supported model. When it intentionally exposes multiple matching aliases, select exact IDs from a repository checkout:
+Verify Hermes first:
 
 ```bash
-python3 plugins/cliproxy-models/scripts/plugin.py \
+hermes --version
+hermes moa list
+```
+
+Choose which model acts as the aggregator. The other exact model becomes its reference advisor.
+
+Grok acts, Gemini advises:
+
+```text
+@hermes-moa Set up Hermes MoA with Grok leading.
+```
+
+Gemini acts, Grok advises:
+
+```text
+@hermes-moa Set up Hermes MoA with Gemini leading.
+```
+
+The plugin creates one Hermes provider:
+
+```yaml
+providers:
+  cliproxy:
+    name: CLIProxyAPI
+    api: http://127.0.0.1:8317/v1
+    key_env: CLIPROXY_API_KEY
+    transport: openai_chat
+```
+
+It also creates:
+
+```text
+cliproxy-grok-led     Gemini reference -> Grok aggregator
+cliproxy-gemini-led   Grok reference   -> Gemini aggregator
+```
+
+Default tuning follows Hermes' cost-conscious MoA shape:
+
+```yaml
+reference_max_tokens: 600
+max_tokens: 4096
+fanout: user_turn
+privacy_filter: display
+enabled: true
+```
+
+An existing `privacy_filter: full` is preserved. `display` redacts user-visible/traced advisor text while leaving raw advice available to the aggregator; `full` also redacts the text passed to the aggregator.
+
+Direct commands:
+
+```bash
+python3 plugins/hermes-moa/scripts/plugin.py status
+python3 plugins/hermes-moa/scripts/plugin.py setup grok-led
+python3 plugins/hermes-moa/scripts/plugin.py setup gemini-led
+python3 plugins/hermes-moa/scripts/plugin.py use grok-led
+python3 plugins/hermes-moa/scripts/plugin.py use gemini-led
+```
+
+Optional tuning:
+
+```bash
+python3 plugins/hermes-moa/scripts/plugin.py setup grok-led \
+  --reference-max-tokens 700 \
+  --max-tokens 4096 \
+  --fanout every_n:2 \
+  --privacy-filter full
+```
+
+Supported fan-out values are `user_turn`, `per_iteration`, and `every_n:<N>` where `N >= 2`. `user_turn` runs advisors once per user turn; `per_iteration` reruns them on every tool-loop iteration and costs more.
+
+Use a named Hermes profile without changing the default profile:
+
+```bash
+python3 plugins/hermes-moa/scripts/plugin.py \
+  --profile coder \
+  setup gemini-led
+```
+
+After setup, use Hermes directly:
+
+```text
+/model cliproxy-grok-led --provider moa
+/model cliproxy-gemini-led --provider moa
+/moa <one-shot prompt using the configured default preset>
+```
+
+The acting aggregator writes the final response and performs tool calls. Restart Hermes or start a new Hermes session after configuration changes.
+
+## 6. Exact alias ambiguity
+
+When CLIProxyAPI intentionally exports multiple matching aliases, pass exact IDs:
+
+```bash
+python3 plugins/hermes-moa/scripts/plugin.py \
   --grok-model 'EXACT_GROK_4_6_ALIAS' \
   --gemini-model 'EXACT_GEMINI_3_7_FLASH_ALIAS' \
-  setup grok
+  setup grok-led
 ```
 
-Explicit aliases are still required to:
+The same flags are available in `cliproxy-models`. Explicit IDs must still exist in both catalogs and match the exact family/version contract.
 
-- exist in both model catalogs;
-- match the requested family and exact version;
-- include `flash` for Gemini 3.7.
+## 7. Status and diagnosis
 
-The plugin never chooses an account-specific alias by guessing.
-
-## 8. Upgrade
-
-Refresh the marketplace snapshot:
-
-```bash
-codex plugin marketplace upgrade cliproxy
-```
-
-Reinstall or refresh the plugin through the Codex plugin UI/CLI, then run:
+Codex prompts:
 
 ```text
 @cliproxy-models Check my CLIProxyAPI model setup.
+@hermes-moa Check my Hermes MoA configuration.
 ```
 
-Read [CHANGELOG.md](CHANGELOG.md) before upgrading across minor or major versions.
+A Hermes status check is read-only. Exit status 2 reports missing or mismatched custody paths and does not write configuration.
 
-## 9. Roll back a configuration change
+## 8. Backups and rollback
 
-When a write changes `~/.codex/config.toml`, the installer reports a timestamped backup such as:
+Codex changes create timestamped `~/.codex/config.toml.bak.*` files. Hermes changes to an existing config create:
 
 ```text
-~/.codex/config.toml.bak.20260829T120000Z
+~/.hermes/config.yaml.bak.cliproxy-moa.<timestamp>
 ```
 
-To restore it:
+For a named profile, the backup is under `~/.hermes/profiles/<profile>/`. A failed Hermes mutation restores exact original bytes automatically; a partial newly created file is removed.
 
-1. Fully quit Codex Desktop.
-2. Copy the selected backup over `~/.codex/config.toml`.
-3. Ensure the restored file has mode `0600`.
-4. Reopen Codex and run a status check.
-
-Example:
+Manual restoration:
 
 ```bash
-cp "$HOME/.codex/config.toml.bak.<timestamp>" "$HOME/.codex/config.toml"
-chmod 600 "$HOME/.codex/config.toml"
+cp "$HOME/.hermes/config.yaml.bak.cliproxy-moa.<timestamp>" \
+   "$HOME/.hermes/config.yaml"
+chmod 600 "$HOME/.hermes/config.yaml"
 ```
 
-The plugin does not roll back or alter CLIProxyAPI account configuration because it never owns it.
+Restart the affected application after restoring.
+
+## 9. Upgrade
+
+```bash
+codex plugin marketplace upgrade cliproxy
+codex plugin list --marketplace cliproxy --json
+```
+
+Refresh the installed plugin through Codex, read [CHANGELOG.md](CHANGELOG.md), and rerun its status command. Setup is byte-idempotent when the desired values already match.
 
 ## 10. Uninstall
 
-Remove the plugin:
-
 ```bash
+codex plugin remove hermes-moa@cliproxy
 codex plugin remove cliproxy-models@cliproxy
 ```
 
@@ -222,54 +243,40 @@ Optionally remove the marketplace:
 codex plugin marketplace remove cliproxy
 ```
 
-Plugin removal does not automatically delete provider/profile entries already written to `~/.codex/config.toml`. Restore a pre-install backup or remove only the managed CLIProxyAPI block while Codex is fully closed.
+Plugin removal does not erase application configuration previously written. Restore a pre-install backup or remove only the owned provider/profile/preset entries while the application is stopped.
 
 ## 11. Troubleshooting
 
-### `CLIPROXY_API_KEY` is unset
+### Key is unset or requests return 401/403
 
-Reload the environment without printing the value:
+Reload the key without printing it and ensure both applications inherited it.
 
-```bash
-export CLIPROXY_API_KEY="$(<"$HOME/.cli-proxy-api/.proxy-api-key")"
-test -n "${CLIPROXY_API_KEY:-}" && echo "CLIPROXY_API_KEY is set"
-```
+### Exact alias is absent or ambiguous
 
-### HTTP 401 or 403
+Publish one stable exact alias per model in CLIProxyAPI, or pass explicit exact IDs. No nearby model version is substituted.
 
-Confirm the key file is current and the Codex process inherited `CLIPROXY_API_KEY`. Do not print the key while diagnosing.
+### Hermes MoA surface is unavailable
 
-### Exact model alias is absent
+Upgrade Hermes Agent until both `hermes moa list` and `hermes config get ... --json` work. The plugin refuses to edit a Hermes installation without the built-in MoA surface.
 
-Inspect only model IDs from CLIProxyAPI and add stable aliases for exact Grok 4.6 and Gemini 3.7 Flash. The plugin will not substitute another version.
+### Foreign provider or preset collision
 
-### Multiple possible aliases
+Inspect `providers.cliproxy`, `moa.presets.cliproxy-grok-led`, and `moa.presets.cliproxy-gemini-led`. Setup refuses foreign data. Use `--force` only after deciding replacement is safe.
 
-Pass explicit `--grok-model` and `--gemini-model` IDs as shown in section 7, or simplify the aliases exported by CLIProxyAPI.
+### HTTP endpoint rejected
 
-### Plain HTTP endpoint rejected
-
-Use loopback HTTP or change the endpoint to HTTPS.
-
-### Current Codex model is not published by CLIProxyAPI
-
-Run setup with an explicit default (`grok` or `gemini`) or use the installer’s profiles-only mode from a checkout.
-
-### Codex still shows the previous model
-
-Fully quit all Codex Desktop processes and reopen the app. Existing threads can retain their original model/provider; create a new thread after switching.
+Use loopback HTTP or remote HTTPS. URLs with embedded credentials, query strings, fragments, or paths other than `/v1` are rejected.
 
 ## 12. Development checkout
-
-Clone and validate:
 
 ```bash
 git clone https://github.com/vai8havchoudhary/codex.git
 cd codex
-
 python3 -m unittest discover -s tests -p 'test_*.py' -v
-python3 -m unittest discover -s plugins/cliproxy-models/scripts -p 'test_*.py' -v
-python3 -m compileall -q plugins/cliproxy-models/scripts tests
+for suite in plugins/*/scripts; do
+  python3 -m unittest discover -s "$suite" -p 'test_*.py' -v
+done
+python3 -m compileall -q plugins tests
 ```
 
-Use offline catalog fixtures for deterministic installer development; do not use real secret values in fixtures.
+Use synthetic fixtures only. Never use a real key value in tests or logs.

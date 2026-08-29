@@ -14,9 +14,9 @@ concurrency:
 
 jobs:
   plugin:
-    name: plugin (Python ${{ matrix.python-version }})
+    name: marketplace (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -28,13 +28,29 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Validate repository and release contracts
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
-      - name: Validate plugin behavior
-        run: python3 -m unittest discover -s plugins/cliproxy-models/scripts -p 'test_*.py' -v
+      - name: Validate all plugin behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          for suite in plugins/*/scripts; do
+            if compgen -G "$suite/test_*.py" >/dev/null; then
+              python3 -m unittest discover -s "$suite" -p 'test_*.py' -v
+            fi
+          done
       - name: Compile Python
-        run: python3 -m compileall -q plugins/cliproxy-models/scripts tests
-      - name: Validate marketplace JSON
-        run: python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
-      - name: Validate plugin manifest JSON
-        run: python3 -m json.tool plugins/cliproxy-models/.codex-plugin/plugin.json >/dev/null
+        run: python3 -m compileall -q plugins tests
+      - name: Validate marketplace and release JSON
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
+          python3 -m json.tool release.json >/dev/null
+      - name: Validate all plugin manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          for manifest in plugins/*/.codex-plugin/plugin.json; do
+            python3 -m json.tool "$manifest" >/dev/null
+          done
       - name: Check patch hygiene
         run: git diff --check

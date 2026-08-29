@@ -17,7 +17,7 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: "3.14"
 
-      - name: Verify release ref and manifest version
+      - name: Verify release ref, marketplace, and plugin versions
         id: metadata
         shell: bash
         run: |
@@ -37,20 +37,17 @@ jobs:
           import re
           from pathlib import Path
 
-          manifest = json.loads(
-              Path("plugins/cliproxy-models/.codex-plugin/plugin.json").read_text()
-          )
-          version = manifest["version"]
+          release = json.loads(Path("release.json").read_text())
+          version = release["version"]
           if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version) is None:
-              raise SystemExit(f"manifest version is not stable semver: {version!r}")
-
+              raise SystemExit(f"release version is not stable semver: {version!r}")
           expected_tag = f"v{version}"
           ref_type = os.environ["GITHUB_REF_TYPE"]
           ref_name = os.environ["GITHUB_REF_NAME"]
           if ref_type == "tag":
               if ref_name != expected_tag:
                   raise SystemExit(
-                      f"release tag {ref_name!r} does not match manifest {expected_tag!r}"
+                      f"release tag {ref_name!r} does not match release metadata {expected_tag!r}"
                   )
           elif ref_type == "branch":
               expected_branch = f"release/{expected_tag}"
@@ -61,6 +58,24 @@ jobs:
           else:
               raise SystemExit(f"unsupported release ref type: {ref_type!r}")
 
+          marketplace = json.loads(Path(".agents/plugins/marketplace.json").read_text())
+          entries = {entry["name"] for entry in marketplace["plugins"]}
+          mapped = release.get("plugins")
+          if not isinstance(mapped, dict) or set(mapped) != entries:
+              raise SystemExit(
+                  f"release plugin map {sorted(mapped or {})} does not match marketplace {sorted(entries)}"
+              )
+          for name, expected_version in sorted(mapped.items()):
+              manifest_path = Path("plugins") / name / ".codex-plugin" / "plugin.json"
+              manifest = json.loads(manifest_path.read_text())
+              if manifest.get("name") != name:
+                  raise SystemExit(f"manifest name mismatch for {name}: {manifest.get('name')!r}")
+              if manifest.get("version") != expected_version:
+                  raise SystemExit(
+                      f"manifest version mismatch for {name}: "
+                      f"{manifest.get('version')!r} != {expected_version!r}"
+                  )
+
           changelog = Path("CHANGELOG.md").read_text()
           if f"## [{version}] - " not in changelog:
               raise SystemExit(f"CHANGELOG.md has no dated section for {version}")
@@ -68,6 +83,7 @@ jobs:
           with Path(os.environ["GITHUB_OUTPUT"]).open("a") as output:
               output.write(f"version={version}\n")
               output.write(f"tag={expected_tag}\n")
+              output.write(f"archive={release['name']}-{version}\n")
           PY
 
       - name: Require promotion branch to equal current main
@@ -83,15 +99,22 @@ jobs:
             exit 1
           fi
 
-      - name: Validate repository and plugin
+      - name: Validate repository and plugins
         shell: bash
         run: |
           set -euo pipefail
           python3 -m unittest discover -s tests -p 'test_*.py' -v
-          python3 -m unittest discover -s plugins/cliproxy-models/scripts -p 'test_*.py' -v
-          python3 -m compileall -q plugins/cliproxy-models/scripts tests
+          for suite in plugins/*/scripts; do
+            if compgen -G "$suite/test_*.py" >/dev/null; then
+              python3 -m unittest discover -s "$suite" -p 'test_*.py' -v
+            fi
+          done
+          python3 -m compileall -q plugins tests
           python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
-          python3 -m json.tool plugins/cliproxy-models/.codex-plugin/plugin.json >/dev/null
+          python3 -m json.tool release.json >/dev/null
+          for manifest in plugins/*/.codex-plugin/plugin.json; do
+            python3 -m json.tool "$manifest" >/dev/null
+          done
           git diff --check
 
       - name: Create or verify annotated release tag
@@ -110,7 +133,7 @@ jobs:
           elif [[ "$GITHUB_REF_TYPE" == "branch" ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag -a "$TAG" "$GITHUB_SHA" -m "CLIProxyAPI Models $TAG"
+            git tag -a "$TAG" "$GITHUB_SHA" -m "CLIProxyAPI Plugins $TAG"
             git push origin "refs/tags/$TAG"
           else
             echo "tag-triggered release is missing its own tag $TAG" >&2
@@ -119,18 +142,19 @@ jobs:
 
       - name: Build release archive
         env:
-          VERSION: ${{ steps.metadata.outputs.version }}
+          ARCHIVE: ${{ steps.metadata.outputs.archive }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist
           git archive \
             --format=zip \
-            --prefix="cliproxy-models-${VERSION}/" \
-            --output="dist/cliproxy-models-${VERSION}.zip" \
+            --prefix="${ARCHIVE}/" \
+            --output="dist/${ARCHIVE}.zip" \
             HEAD \
             .agents/plugins/marketplace.json \
-            plugins/cliproxy-models \
+            plugins \
+            release.json \
             README.md \
             SETUP.md \
             CHANGELOG.md \
@@ -140,13 +164,12 @@ jobs:
             TERMS.md
           (
             cd dist
-            sha256sum "cliproxy-models-${VERSION}.zip" \
-              > "cliproxy-models-${VERSION}.zip.sha256"
+            sha256sum "${ARCHIVE}.zip" > "${ARCHIVE}.zip.sha256"
           )
 
       - uses: actions/upload-artifact@v4
         with:
-          name: cliproxy-models-${{ steps.metadata.outputs.version }}
+          name: ${{ steps.metadata.outputs.archive }}
           path: dist/*
           if-no-files-found: error
 
@@ -164,5 +187,5 @@ jobs:
               dist/* \
               --verify-tag \
               --generate-notes \
-              --title "CLIProxyAPI Models $TAG"
+              --title "CLIProxyAPI Plugins $TAG"
           fi
