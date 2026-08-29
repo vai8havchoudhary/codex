@@ -1,0 +1,45 @@
+{
+  "name": "hermes-moa",
+  "version": "1.0.0",
+  "description": "Configure Hermes Agent Mixture-of-Agents presets over CLIProxyAPI-backed Grok 4.6 and Gemini 3.7 Flash.",
+  "author": {
+    "name": "Vaibhav Choudhary",
+    "url": "https://github.com/vai8havchoudhary"
+  },
+  "homepage": "https://github.com/vai8havchoudhary/codex/tree/main/plugins/hermes-moa",
+  "repository": "https://github.com/vai8havchoudhary/codex",
+  "license": "MIT",
+  "keywords": [
+    "hermes-agent",
+    "mixture-of-agents",
+    "moa",
+    "cliproxyapi",
+    "grok",
+    "gemini",
+    "multi-model"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Hermes MoA via CLIProxyAPI",
+    "shortDescription": "Use Grok and Gemini together in Hermes Agent",
+    "longDescription": "Configure two fail-closed Hermes Agent Mixture-of-Agents presets over one CLIProxyAPI provider: Gemini advises while Grok acts, or Grok advises while Gemini acts. Upstream accounts and credentials remain entirely inside CLIProxyAPI.",
+    "developerName": "Vaibhav Choudhary",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://hermes-agent.nousresearch.com/docs/user-guide/features/mixture-of-agents",
+    "privacyPolicyURL": "https://github.com/vai8havchoudhary/codex/blob/main/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/vai8havchoudhary/codex/blob/main/TERMS.md",
+    "defaultPrompt": [
+      "Set up Hermes MoA with Grok leading",
+      "Check my Hermes MoA configuration",
+      "Switch Hermes MoA to Gemini leading"
+    ],
+    "brandColor": "#7C3AED",
+    "brandColorDark": "#C4B5FD",
+    "composerIcon": "./assets/composer-icon.svg"
+  }
+}

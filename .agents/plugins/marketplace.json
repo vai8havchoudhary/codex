@@ -1,7 +1,7 @@
 {
   "name": "cliproxy",
   "interface": {
-    "displayName": "CLIProxyAPI Models"
+    "displayName": "CLIProxyAPI Models & Agents"
   },
   "plugins": [
     {
@@ -9,6 +9,21 @@
       "source": {
         "source": "local",
         "path": "./plugins/cliproxy-models"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL",
+        "products": [
+          "CODEX"
+        ]
+      },
+      "category": "Developer Tools"
+    },
+    {
+      "name": "hermes-moa",
+      "source": {
+        "source": "local",
+        "path": "./plugins/hermes-moa"
       },
       "policy": {
         "installation": "AVAILABLE",

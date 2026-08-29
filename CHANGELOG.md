@@ -1,8 +1,6 @@
 # Changelog
 
-All notable user-visible changes to this project are documented here.
-
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow semantic versioning.
+All notable user-visible changes are documented here. Versions follow semantic versioning for the marketplace bundle defined by `release.json`.
 
 ## [Unreleased]
 
@@ -10,19 +8,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Nothing yet.
 
+## [1.1.0] - 2026-08-29
+
+### Added
+
+- `hermes-moa` Codex plugin for configuring Hermes Agent's built-in Mixture-of-Agents provider.
+- One `cliproxy` Hermes provider backed by `CLIPROXY_URL` and the environment-variable name `CLIPROXY_API_KEY`.
+- Grok-led and Gemini-led cross-model presets with exact dual-catalog alias admission.
+- Transactional Hermes config mutation, foreign-collision refusal, exact rollback, backups, idempotence, named-profile support, status, tuning, and switching.
+- Marketplace-bundle release metadata and multi-plugin validation/packaging.
+
 ## [1.0.0] - 2026-08-29
 
 ### Added
 
 - Standalone Codex marketplace and `cliproxy-models` plugin.
 - Exact Grok 4.6 and Gemini 3.7 Flash profile admission through one CLIProxyAPI provider.
-- Validation of both OpenAI-compatible and Codex-compatible CLIProxyAPI model catalogs.
-- Fail-closed endpoint, alias, provider-collision, and current-model checks.
-- Secret-safe `CLIPROXY_URL` and `CLIPROXY_API_KEY` launch contract.
-- Atomic, mode-`0600`, timestamp-backed-up, byte-idempotent Codex configuration writes.
-- Codex skill, setup/status/use commands, direct Python entry point, and deterministic regression tests.
-- Agent, setup, contribution, security, and release documentation.
-- Tag-driven validation, packaging, checksum, and GitHub release workflow.
+- Secret-safe endpoint/key environment contract, atomic Codex config writes, tests, docs, checksums, and GitHub release automation.
 
-[Unreleased]: https://github.com/vai8havchoudhary/codex/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/vai8havchoudhary/codex/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/vai8havchoudhary/codex/releases/tag/v1.1.0
 [1.0.0]: https://github.com/vai8havchoudhary/codex/releases/tag/v1.0.0
