@@ -8,19 +8,33 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: validate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   plugin:
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.13"]
+    name: plugin (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: python3 -m unittest discover -s tests -v
-      - run: python3 -m unittest discover -s plugins/cliproxy-models/scripts -p 'test_*.py' -v
-      - run: python3 -m py_compile plugins/cliproxy-models/scripts/*.py
-      - run: python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
-      - run: python3 -m json.tool plugins/cliproxy-models/.codex-plugin/plugin.json >/dev/null
+      - name: Validate repository and release contracts
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Validate plugin behavior
+        run: python3 -m unittest discover -s plugins/cliproxy-models/scripts -p 'test_*.py' -v
+      - name: Compile Python
+        run: python3 -m compileall -q plugins/cliproxy-models/scripts tests
+      - name: Validate marketplace JSON
+        run: python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
+      - name: Validate plugin manifest JSON
+        run: python3 -m json.tool plugins/cliproxy-models/.codex-plugin/plugin.json >/dev/null
+      - name: Check patch hygiene
+        run: git diff --check
