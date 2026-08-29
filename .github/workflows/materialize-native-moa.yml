@@ -23,7 +23,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          sha256sum .bootstrap/native-moa.b64.part-*
+          wc -c .bootstrap/native-moa.b64.part-*
           cat .bootstrap/native-moa.b64.part-* > /tmp/native-moa.b64
+          sha256sum /tmp/native-moa.b64
+          wc -c /tmp/native-moa.b64
           base64 -d /tmp/native-moa.b64 > /tmp/native-moa-source.tar.gz
           echo "eee2cf6b38d41b8991d2d0aefc499f87c65e04493c483bb71b6d66030761e8d9  /tmp/native-moa-source.tar.gz" | sha256sum -c -
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf -- {} +
