@@ -54,7 +54,10 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertEqual(marketplace["plugins"][0]["name"], manifest["name"])
 
         changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-        self.assertRegex(changelog, rf"(?m)^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}$")
+        self.assertRegex(
+            changelog,
+            rf"(?m)^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}$",
+        )
 
     def test_agent_contract_names_security_and_validation_invariants(self) -> None:
         handbook = (ROOT / "agent.md").read_text(encoding="utf-8")
@@ -70,18 +73,40 @@ class ReleaseReadinessTests(unittest.TestCase):
         self.assertIn("byte-idempotent", handbook)
         self.assertIn("docs/RELEASING.md", agents)
 
-    def test_release_workflow_is_tag_guarded_and_packages_only_public_inputs(self) -> None:
-        workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
-        self.assertIn('tags:', workflow)
-        self.assertIn('actual_tag != expected_tag', workflow)
-        self.assertIn('CHANGELOG.md has no dated section', workflow)
-        self.assertIn('sha256sum', workflow)
-        self.assertIn('gh release create', workflow)
+    def test_release_workflow_is_ref_guarded_and_packages_only_public_inputs(self) -> None:
+        workflow = (ROOT / ".github/workflows/release.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("tags:", workflow)
+        self.assertIn("branches:", workflow)
+        self.assertIn('"release/v*"', workflow)
+        self.assertIn('ref_type == "tag"', workflow)
+        self.assertIn('ref_type == "branch"', workflow)
+        self.assertIn('expected_branch = f"release/{expected_tag}"', workflow)
+        self.assertIn("git rev-parse origin/main", workflow)
+        self.assertIn('git tag -a "$TAG"', workflow)
+        self.assertIn('git push origin "refs/tags/$TAG"', workflow)
+        self.assertIn("existing tag $TAG points to", workflow)
+        self.assertIn("CHANGELOG.md has no dated section", workflow)
+        self.assertIn("sha256sum", workflow)
+        self.assertIn('gh release create "$TAG"', workflow)
         self.assertNotIn(".proxy-api-key", workflow)
         self.assertNotIn(".codex/config.toml", workflow)
 
+    def test_releasing_guide_documents_both_authorized_paths(self) -> None:
+        guide = (ROOT / "docs/RELEASING.md").read_text(encoding="utf-8")
+        self.assertIn("Publication path A: push the annotated tag", guide)
+        self.assertIn("Publication path B: guarded release branch", guide)
+        self.assertIn("release/v<manifest version>", guide)
+        self.assertIn(
+            "requires the promotion branch commit to equal current `main`", guide
+        )
+        self.assertIn("Do not move an existing release tag", guide)
+
     def test_validate_workflow_covers_supported_python_floor_and_release_runtime(self) -> None:
-        workflow = (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8")
+        workflow = (ROOT / ".github/workflows/validate.yml").read_text(
+            encoding="utf-8"
+        )
         self.assertIn('"3.11"', workflow)
         self.assertIn('"3.14"', workflow)
         self.assertTrue((ROOT / "tests/test_release_readiness.py").is_file())

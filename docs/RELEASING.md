@@ -2,19 +2,17 @@
 
 This document is the maintainer checklist for publishing `cliproxy-models`.
 
-The preparation commit does not create a tag or GitHub release. A release is published only when an authorized maintainer pushes a matching version tag.
+The version in the plugin manifest is authoritative. A release is published only from the exact current `main` commit, either by pushing the matching annotated tag or by creating the guarded promotion branch described below.
 
 ## Version authority
 
-The version in:
+The authoritative version is:
 
 ```text
 plugins/cliproxy-models/.codex-plugin/plugin.json
 ```
 
-is authoritative.
-
-A release tag must be exactly:
+The release tag must be exactly:
 
 ```text
 v<manifest version>
@@ -22,17 +20,18 @@ v<manifest version>
 
 For manifest version `1.0.0`, the only accepted tag is `v1.0.0`.
 
-`CHANGELOG.md` must contain a dated section for the same version before tagging.
+`CHANGELOG.md` must contain a dated section for the same version before publication.
 
 ## Pre-release checklist
 
 1. Confirm `main` is at the intended release commit.
-2. Confirm no local keys, Codex configuration, backups, caches, or generated archives are tracked.
-3. Review `SETUP.md`, `SECURITY.md`, `PRIVACY.md`, and `TERMS.md`.
-4. Confirm the marketplace and manifest both name the plugin `cliproxy-models`.
-5. Confirm the marketplace name remains `cliproxy`.
-6. Confirm the manifest version and changelog version match.
-7. Run:
+2. Confirm the merged `validate` workflow is green on that exact commit.
+3. Confirm no local keys, Codex configuration, backups, caches, logs, or generated archives are tracked.
+4. Review `SETUP.md`, `SECURITY.md`, `PRIVACY.md`, and `TERMS.md`.
+5. Confirm the marketplace and manifest both name the plugin `cliproxy-models`.
+6. Confirm the marketplace name remains `cliproxy`.
+7. Confirm the manifest version and changelog version match.
+8. Run:
 
 ```bash
 python3 -m unittest discover -s tests -p 'test_*.py' -v
@@ -43,16 +42,16 @@ python3 -m json.tool plugins/cliproxy-models/.codex-plugin/plugin.json >/dev/nul
 git diff --check
 ```
 
-8. Run a live smoke test when available:
+9. Run a live smoke test when available:
    - install or upgrade the marketplace;
    - run plugin status;
    - set up Grok;
    - switch to Gemini;
    - confirm no secret value appears in output or config;
    - confirm a second setup is byte-idempotent.
-9. Record any unavailable live gate honestly.
+10. Record any unavailable live gate honestly.
 
-## Tag and publish
+## Publication path A: push the annotated tag
 
 Read the version without printing any secret-bearing environment:
 
@@ -66,23 +65,73 @@ PY
 )"
 ```
 
-Create and push an annotated tag:
+Create and push the annotated tag from the exact current `main` commit:
 
 ```bash
+git fetch origin
+git switch main
+git pull --ff-only
 git tag -a "v${VERSION}" -m "CLIProxyAPI Models v${VERSION}"
 git push origin "v${VERSION}"
 ```
 
+The workflow refuses a tag that does not equal `v<manifest version>`.
+
+## Publication path B: guarded release branch
+
+This path is intended for an authorized GitHub connector or maintainer environment that can create branches but cannot write tag refs directly.
+
+Create exactly:
+
+```text
+release/v<manifest version>
+```
+
+from the current `main` commit. For `1.0.0`:
+
+```bash
+git fetch origin
+git branch -f release/v1.0.0 origin/main
+git push origin release/v1.0.0
+```
+
 The `release` workflow then:
 
-1. verifies the tag equals `v<manifest version>`;
-2. reruns deterministic validation;
-3. creates a versioned ZIP containing the plugin, marketplace manifest, license, and setup documentation;
-4. creates a SHA-256 checksum;
-5. uploads both assets;
-6. creates or updates the GitHub release.
+1. requires the branch name to equal `release/v<manifest version>`;
+2. fetches `origin/main` and requires the promotion branch commit to equal current `main`;
+3. reruns deterministic validation;
+4. creates the missing annotated `v<manifest version>` tag, or verifies an existing tag points to the same commit;
+5. builds and checksums the release archive;
+6. creates or idempotently updates the GitHub release.
 
-A mismatched tag fails before packaging.
+Do not add commits directly to a promotion branch. If `main` changes before publication, delete and recreate the promotion branch from the new intended release commit.
+
+## Release workflow outputs
+
+For either publication path, `.github/workflows/release.yml`:
+
+1. verifies the release ref, manifest version, and dated changelog section;
+2. reruns repository and plugin tests;
+3. creates `cliproxy-models-<version>.zip`;
+4. creates `cliproxy-models-<version>.zip.sha256`;
+5. uploads both as workflow artifacts;
+6. creates or updates the GitHub release titled `CLIProxyAPI Models v<version>`.
+
+The archive contains only:
+
+```text
+.agents/plugins/marketplace.json
+plugins/cliproxy-models/
+README.md
+SETUP.md
+CHANGELOG.md
+LICENSE
+PRIVACY.md
+SECURITY.md
+TERMS.md
+```
+
+A mismatched tag, mismatched branch, stale promotion branch, conflicting existing tag, missing changelog section, failed test, or missing release asset fails closed before publication completes.
 
 ## Post-release verification
 
@@ -105,7 +154,19 @@ Verify the release page contains:
 - the versioned ZIP;
 - the `.sha256` checksum;
 - generated release notes;
-- no key, configuration, backup, or cache files.
+- no key, configuration, backup, cache, or log files.
+
+Verify the checksum:
+
+```bash
+sha256sum -c cliproxy-models-<version>.zip.sha256
+```
+
+On macOS, use:
+
+```bash
+shasum -a 256 -c cliproxy-models-<version>.zip.sha256
+```
 
 ## Rollback
 
@@ -117,5 +178,7 @@ When a release is bad:
 2. fix `main`;
 3. bump the patch version;
 4. update `CHANGELOG.md`;
-5. publish a new tag;
+5. publish a new tag or matching guarded promotion branch;
 6. advise users to upgrade or restore their timestamped Codex configuration backup when relevant.
+
+A promotion branch may be deleted after the release is verified. The immutable tag and GitHub release remain the release authority.
