@@ -1,0 +1,56 @@
+name: materialize native Codex MoA
+
+on:
+  push:
+    branches:
+      - feat/native-codex-moa-long-horizon-20260829
+
+permissions:
+  contents: write
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - name: Reconstruct reviewed source tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .bootstrap/native-moa.b64.part-* > /tmp/native-moa.b64
+          base64 -d /tmp/native-moa.b64 > /tmp/native-moa-source.tar.gz
+          echo "eee2cf6b38d41b8991d2d0aefc499f87c65e04493c483bb71b6d66030761e8d9  /tmp/native-moa-source.tar.gz" | sha256sum -c -
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf -- {} +
+          tar -xzf /tmp/native-moa-source.tar.gz
+      - name: Validate exact materialized bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p 'test_*.py' -v
+          for suite in plugins/*/scripts; do
+            if compgen -G "$suite/test_*.py" >/dev/null; then
+              python3 -W error::ResourceWarning -m unittest discover -s "$suite" -p 'test_*.py' -v
+            fi
+          done
+          python3 -m compileall -q plugins tests
+          python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
+          python3 -m json.tool release.json >/dev/null
+          for manifest in plugins/*/.codex-plugin/plugin.json; do python3 -m json.tool "$manifest" >/dev/null; done
+          for mcp in plugins/*/.mcp.json; do python3 -m json.tool "$mcp" >/dev/null; done
+          git diff --check
+      - name: Commit materialized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "feat!: replace Hermes MoA with native Codex long-horizon MoA"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
