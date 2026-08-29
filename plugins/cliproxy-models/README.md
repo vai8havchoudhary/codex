@@ -1,6 +1,6 @@
 # CLIProxyAPI Models plugin
 
-This plugin configures one Codex provider and two model profiles:
+This plugin configures one Codex provider and two exact model profiles:
 
 - `cliproxy-grok-4-6`
 - `cliproxy-gemini-3-7-flash`
@@ -13,3 +13,10 @@ export CLIPROXY_API_KEY="$(<"$HOME/.cli-proxy-api/.proxy-api-key")"
 ```
 
 Invoke the `cliproxy-models` skill for setup, diagnosis, or model switching. The implementation uses only the Python standard library and never reads CLIProxyAPI upstream account files.
+
+See the repository guides:
+
+- [Setup and troubleshooting](../../SETUP.md)
+- [Security policy](../../SECURITY.md)
+- [Agent handbook](../../agent.md)
+- [Release procedure](../../docs/RELEASING.md)
