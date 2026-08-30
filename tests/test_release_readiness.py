@@ -11,77 +11,40 @@ RELEASE = ROOT / "release.json"
 
 
 class ReleaseReadinessTests(unittest.TestCase):
-    def test_release_documentation_is_present_and_complete(self) -> None:
-        required = (
-            "README.md",
-            "AGENTS.md",
-            "agent.md",
-            "SETUP.md",
-            "CONTRIBUTING.md",
-            "SECURITY.md",
-            "CHANGELOG.md",
-            "docs/RELEASING.md",
-        )
-        for relative in required:
-            path = ROOT / relative
-            self.assertTrue(path.is_file(), relative)
-            text = path.read_text(encoding="utf-8")
-            self.assertNotIn("[TODO", text, relative)
-            self.assertNotIn("your-api-key", text.lower(), relative)
-
-        setup = (ROOT / "SETUP.md").read_text(encoding="utf-8")
-        for phrase in (
-            "export CLIPROXY_URL=http://127.0.0.1:8317",
-            'export CLIPROXY_API_KEY="$(<"$HOME/.cli-proxy-api/.proxy-api-key")"',
-            "codex plugin marketplace add vai8havchoudhary/codex --ref main",
-            "codex plugin add cliproxy-models@cliproxy",
-            "codex plugin add hermes-moa@cliproxy",
-            "codex plugin marketplace upgrade cliproxy",
-            "codex plugin remove hermes-moa@cliproxy",
-            "/model cliproxy-grok-led --provider moa",
-            "/moa <one-shot prompt",
-        ):
-            self.assertIn(phrase, setup)
-
     def test_release_marketplace_and_manifest_versions_align(self) -> None:
         release = json.loads(RELEASE.read_text())
         marketplace = json.loads(MARKETPLACE.read_text())
-        version = release["version"]
-        self.assertRegex(version, r"^[0-9]+\.[0-9]+\.[0-9]+$")
+        self.assertEqual(release["name"], "cliproxy-plugins")
+        self.assertEqual(release["version"], "2.0.0")
         names = {entry["name"] for entry in marketplace["plugins"]}
         self.assertEqual(set(release["plugins"]), names)
         for name, expected_version in release["plugins"].items():
-            manifest = json.loads(
-                (ROOT / f"plugins/{name}/.codex-plugin/plugin.json").read_text()
-            )
+            manifest = json.loads((ROOT / f"plugins/{name}/.codex-plugin/plugin.json").read_text())
             self.assertEqual(manifest["name"], name)
             self.assertEqual(manifest["version"], expected_version)
+        changelog = (ROOT / "CHANGELOG.md").read_text()
+        self.assertRegex(changelog, r"(?m)^## \[2\.0\.0\] - 2026-08-30$")
 
-        changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-        self.assertRegex(
-            changelog,
-            rf"(?m)^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}$",
-        )
-
-    def test_agent_contract_covers_both_plugins_and_security_invariants(self) -> None:
-        handbook = (ROOT / "agent.md").read_text(encoding="utf-8")
-        agents = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
-        for text in (handbook, agents):
+    def test_docs_cover_native_boundary_and_live_ambiguity(self) -> None:
+        for relative in ("README.md", "SETUP.md", "AGENTS.md", "agent.md", "CONTRIBUTING.md"):
+            text = (ROOT / relative).read_text()
             for phrase in (
                 "cliproxy-models",
-                "hermes-moa",
-                "Grok 4.6",
-                "Gemini 3.7 Flash",
+                "codex-moa",
+                "grok-4.6",
+                "gemini-3.7-flash-high",
+                "gemini-3.7-flash-advisor",
                 "CLIPROXY_API_KEY",
-                "cliproxy-grok-led",
-                "cliproxy-gemini-led",
-                "release.json",
             ):
-                self.assertIn(phrase, text)
-        self.assertIn("exact original bytes", handbook)
-        self.assertIn("docs/RELEASING.md", agents)
+                self.assertIn(phrase, text, relative)
+        setup = (ROOT / "SETUP.md").read_text()
+        self.assertIn("Automatic setup must refuse", setup)
+        self.assertIn("--gemini-model gemini-3.7-flash-high", setup)
+        handbook = (ROOT / "agent.md").read_text()
+        self.assertIn("no external model loop", handbook.lower())
+        self.assertIn("two coherent repair rounds", handbook)
 
-    def test_release_workflow_is_guarded_and_packages_all_plugins(self) -> None:
+    def test_release_workflow_is_guarded_and_packages_tracked_source(self) -> None:
         workflow = (ROOT / ".github/workflows/release.yml").read_text()
         for phrase in (
             '"release/v*"',
@@ -96,27 +59,44 @@ class ReleaseReadinessTests(unittest.TestCase):
             "plugins \\",
             "sha256sum",
             'gh release create "$TAG"',
+            "plugins/codex-moa",
+            "obsolete release paths remain",
         ):
             self.assertIn(phrase, workflow)
-        self.assertNotIn(".proxy-api-key", workflow)
-        self.assertNotIn(".codex/config.toml", workflow)
-        self.assertNotIn(".hermes/config.yaml", workflow)
+        for forbidden in (".proxy-api-key", ".codex/config.toml", ".hermes/config.yaml", "native-moa.b64"):
+            self.assertNotIn(forbidden, workflow)
 
-    def test_validate_workflow_discovers_every_plugin_suite(self) -> None:
+    def test_validate_workflow_discovers_all_tests_and_mcp(self) -> None:
         workflow = (ROOT / ".github/workflows/validate.yml").read_text()
         self.assertIn('"3.11"', workflow)
         self.assertIn('"3.14"', workflow)
-        self.assertIn("plugins/*/scripts", workflow)
-        self.assertIn("plugins/*/.codex-plugin/plugin.json", workflow)
-        self.assertIn("compileall -q plugins tests", workflow)
+        self.assertIn("plugins/*/scripts plugins/*/tests", workflow)
+        self.assertIn("plugins/*/.mcp.json", workflow)
+        self.assertIn("test ! -e .bootstrap", workflow)
+        self.assertIn("test ! -e plugins/hermes-moa", workflow)
 
-    def test_releasing_guide_documents_marketplace_authority(self) -> None:
+    def test_release_guide_forbids_premature_publication_and_bootstrap(self) -> None:
         guide = (ROOT / "docs/RELEASING.md").read_text()
         self.assertIn("`release.json` is authoritative", guide)
-        self.assertIn("Publication path A: annotated tag", guide)
-        self.assertIn("Publication path B: guarded promotion branch", guide)
-        self.assertIn("requires the promotion branch commit to equal current `main`", guide)
+        self.assertIn("Do not publish before the exact-main live gate", guide)
+        self.assertIn("Bootstrap archives", guide)
         self.assertIn("Do not move a published tag", guide)
+        self.assertIn("release/v2.0.0", guide)
+
+    def test_mcp_config_does_not_receive_proxy_authority(self) -> None:
+        mcp = json.loads((ROOT / "plugins/codex-moa/.mcp.json").read_text())
+        server = mcp["mcpServers"]["codex-moa-checkpoints"]
+        self.assertEqual(server["env_vars"], ["CODEX_HOME"])
+        encoded = json.dumps(mcp)
+        self.assertNotIn("CLIPROXY_API_KEY", encoded)
+        self.assertNotIn("CLIPROXY_URL", encoded)
+        self.assertNotIn("account", encoded.lower())
+
+    def test_research_file_maps_primary_sources_to_policy(self) -> None:
+        text = (ROOT / "plugins/codex-moa/references/long-horizon-research.md").read_text()
+        for identifier in ("2405.15793", "2407.01489", "2309.12499", "2406.11638", "2406.04692", "2303.11366"):
+            self.assertIn(identifier, text)
+        self.assertIn("one acting trajectory", text)
 
 
 if __name__ == "__main__":

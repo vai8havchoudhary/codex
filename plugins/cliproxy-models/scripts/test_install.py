@@ -51,6 +51,31 @@ class CatalogTests(unittest.TestCase):
         result = install.resolve_models(catalogs(values), grok="xai/grok-4.6")
         self.assertEqual(result.grok, "xai/grok-4.6")
 
+    def test_vps2_gemini_high_and_advisor_are_ambiguous_until_explicit(self):
+        values = [
+            "grok-4.6",
+            "gemini-3.7-flash-high",
+            "gemini-3.7-flash-advisor",
+        ]
+        with self.assertRaisesRegex(install.InstallError, "multiple possible aliases"):
+            install.resolve_models(catalogs(values))
+        result = install.resolve_models(
+            catalogs(values),
+            gemini="gemini-3.7-flash-high",
+        )
+        self.assertEqual(result.grok, "grok-4.6")
+        self.assertEqual(result.gemini, "gemini-3.7-flash-high")
+
+    def test_explicit_vps2_gemini_alias_must_exist_in_both_catalogs(self):
+        with self.assertRaisesRegex(install.InstallError, "both CLIProxyAPI catalogs"):
+            install.resolve_models(
+                catalogs(
+                    ["grok-4.6", "gemini-3.7-flash-high"],
+                    ["grok-4.6", "gemini-3.7-flash-advisor"],
+                ),
+                gemini="gemini-3.7-flash-high",
+            )
+
     def test_offline_requires_both_catalog_shapes(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "models.json"

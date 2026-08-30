@@ -1,43 +1,36 @@
 # Repository instructions
 
-This repository is the `cliproxy` Codex plugin marketplace, not an OpenAI Codex source fork.
+This repository is the `cliproxy` Codex plugin marketplace. It contains exactly two native Codex plugins:
 
-Read [agent.md](agent.md) before non-trivial changes. It is the architecture and operations handbook; this file contains mandatory rules Codex should load automatically.
+- `cliproxy-models`
+- `codex-moa`
 
-## Marketplace invariants
+Read [agent.md](agent.md) before non-trivial changes.
 
-- Marketplace name remains `cliproxy`.
-- Every `plugins/<name>` directory, manifest `name`, skill `name`, marketplace entry, and release mapping must agree.
-- Current plugins are `cliproxy-models` and `hermes-moa`.
-- `release.json` is the marketplace release/version authority; its plugin-version map must equal every plugin manifest.
+## Non-negotiable invariants
 
-## Authority and security invariants
-
-- Maintain exactly one CLIProxyAPI provider in each target application. Never create providers per upstream Grok or Gemini account.
-- Never read, enumerate, print, log, summarize, or persist CLIProxyAPI account data or the value of `CLIPROXY_API_KEY`.
-- Store only the environment-variable name `CLIPROXY_API_KEY` in Codex or Hermes configuration.
-- Require exact Grok 4.6 and Gemini 3.7 Flash IDs in both CLIProxyAPI catalogs.
-- Reject ambiguity, nearby versions, malformed endpoints, unrelated provider collisions, foreign Hermes preset collisions, and unsafe non-loopback HTTP.
-- Keep mutations fail closed, timestamp-backed-up, post-validated, and byte-idempotent; restore exact original bytes after partial failure.
-- Preserve unrelated `~/.codex/config.toml` and `~/.hermes/config.yaml` content.
-- Do not change CLIProxyAPI routing, credentials, quotas, aliases, or account files.
-
-## Hermes-specific invariants
-
-- Use Hermes' built-in virtual provider `moa`; do not implement a parallel orchestration runtime.
-- Use one named custom provider `cliproxy` with `transport: openai_chat` and `key_env: CLIPROXY_API_KEY`.
-- `cliproxy-grok-led` means Gemini reference advisor and Grok acting aggregator.
-- `cliproxy-gemini-led` means Grok reference advisor and Gemini acting aggregator.
-- The aggregator is the acting model; reference models advise before it.
-- Preserve `privacy_filter: full` when already selected.
+- Keep marketplace, directory, manifest, skill, and release names aligned.
+- `release.json` is the marketplace bundle version authority.
+- Maintain exactly one Codex provider for CLIProxyAPI. Never create providers per upstream account.
+- Never read, enumerate, print, summarize, or persist proxy account files or the value of `CLIPROXY_API_KEY`.
+- Store only the environment-variable name `CLIPROXY_API_KEY` in Codex configuration.
+- Require exact Grok 4.6 and Gemini 3.7 Flash aliases in both CLIProxyAPI catalogs.
+- Current VPS2 evidence includes `grok-4.6`, `gemini-3.7-flash-high`, and `gemini-3.7-flash-advisor`, with no bare Gemini alias. Automatic selection must refuse the ambiguity; an explicit exact common alias may be admitted.
+- Keep `codex-moa` native to Codex subagents, model overrides, skills, commands, agent definitions, and its checkpoint MCP server.
+- Do not add Hermes Agent, another scheduler, a second model gateway, or a parallel orchestration runtime.
+- The checkpoint MCP server may store compact immutable state only. It must not execute code, call models, receive the proxy key, or route accounts.
+- Preserve single-writer ownership, bounded fanout, bounded recovery, repository-native validation, and independent final review.
+- Keep configuration and checkpoint writes fail closed, atomic, permission-restricted, post-validated, and idempotent.
+- `.bootstrap/`, `native-moa.b64.part-*`, and `materialize-native-moa.yml` must remain physically absent.
 
 ## Change workflow
 
-1. Inspect marketplace, release metadata, affected manifests/skills/scripts, root docs, workflows, and tests.
-2. Make one coherent vertical change without duplicate configuration paths.
-3. Update setup/security/release documentation when behavior changes.
-4. Align `release.json`, plugin manifests, and `CHANGELOG.md` for released changes.
+1. Inspect marketplace/release authority, both plugin manifests, relevant skills/commands/agents, MCP config/server, and tests.
+2. Make one coherent change without duplicating model admission or orchestration authority.
+3. Update tests and user docs for changed behavior or live alias evidence.
+4. Align manifest versions, `release.json`, and `CHANGELOG.md` for release changes.
 5. Run every command under **Development validation** in `README.md`.
-6. Follow `docs/RELEASING.md` for tags or guarded promotion branches.
+6. Reread the exact diff and GitHub checks before merge.
+7. For publication, follow `docs/RELEASING.md`. Never create or move a release tag during ordinary implementation.
 
-Do not claim a live CLIProxyAPI, Codex Desktop, or Hermes Agent smoke test unless it actually ran.
+Do not claim a live CLIProxyAPI, Codex Desktop, or VPS2 gate unless it was actually run on the exact commit being adjudicated.

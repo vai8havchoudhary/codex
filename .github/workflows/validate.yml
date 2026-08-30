@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  plugin:
+  marketplace:
     name: marketplace (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -28,29 +28,39 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Validate repository and release contracts
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
-      - name: Validate all plugin behavior
+      - name: Validate every plugin suite
         shell: bash
         run: |
           set -euo pipefail
-          for suite in plugins/*/scripts; do
-            if compgen -G "$suite/test_*.py" >/dev/null; then
+          for suite in plugins/*/scripts plugins/*/tests; do
+            if [[ -d "$suite" ]] && compgen -G "$suite/test_*.py" >/dev/null; then
               python3 -m unittest discover -s "$suite" -p 'test_*.py' -v
             fi
           done
       - name: Compile Python
         run: python3 -m compileall -q plugins tests
       - name: Validate marketplace and release JSON
-        shell: bash
         run: |
-          set -euo pipefail
           python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
           python3 -m json.tool release.json >/dev/null
-      - name: Validate all plugin manifests
+      - name: Validate plugin manifests and MCP configs
         shell: bash
         run: |
           set -euo pipefail
           for manifest in plugins/*/.codex-plugin/plugin.json; do
             python3 -m json.tool "$manifest" >/dev/null
           done
+          for mcp in plugins/*/.mcp.json; do
+            [[ -e "$mcp" ]] || continue
+            python3 -m json.tool "$mcp" >/dev/null
+          done
+      - name: Refuse obsolete delivery paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          test ! -e .bootstrap
+          test ! -e .github/workflows/materialize-native-moa.yml
+          test ! -e plugins/hermes-moa
+          test -d plugins/codex-moa
       - name: Check patch hygiene
         run: git diff --check
