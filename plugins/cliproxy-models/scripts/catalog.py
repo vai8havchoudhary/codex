@@ -24,6 +24,7 @@ CLIENT_VERSION = "999.0.0"
 TABLE_RE = re.compile(r"^\s*(\[\[|\[)([^\]]+)(\]\]|\])\s*(?:#.*)?$")
 KEY_RE = re.compile(r"^(?P<indent>\s*)(?P<key>[A-Za-z0-9_-]+)(?P<pre>\s*)=(?P<post>\s*)(?P<value>.*)$")
 
+
 class InstallError(RuntimeError):
     """Fail-closed installation error with an actionable message."""
 
@@ -132,13 +133,7 @@ def extract_codex_slugs(payload: Any) -> tuple[str, ...]:
     return result
 
 
-def read_catalogs(
-    base_url: str,
-    env_key: str | None,
-    models_file: Path | None,
-    codex_models_file: Path | None,
-    timeout: float,
-) -> Catalogs:
+def read_catalogs(base_url: str, env_key: str | None, models_file: Path | None, codex_models_file: Path | None, timeout: float) -> Catalogs:
     if models_file:
         openai_payload = load_json(models_file, "model response file")
         if not codex_models_file:
@@ -185,13 +180,7 @@ def stable_alias(model_id: str, suffixes: Sequence[str]) -> bool:
     return False
 
 
-def resolve_one(
-    catalogs: Catalogs,
-    family: str,
-    version: str,
-    marker: str | None,
-    explicit: str | None,
-) -> str:
+def resolve_one(catalogs: Catalogs, family: str, version: str, marker: str | None, explicit: str | None) -> str:
     common = tuple(value for value in catalogs.openai_ids if value in catalogs.codex_slugs)
     label = f"{family} {version}" + (f" {marker}" if marker else "")
     if explicit:
@@ -215,10 +204,7 @@ def resolve_one(
 
 
 def resolve_models(catalogs: Catalogs, grok: str | None = None, gemini: str | None = None) -> Models:
-    return Models(
-        resolve_one(catalogs, "grok", "4.6", None, grok),
-        resolve_one(catalogs, "gemini", "3.7", "flash", gemini),
-    )
+    return Models(resolve_one(catalogs, "grok", "4.6", None, grok), resolve_one(catalogs, "gemini", "3.7", "flash", gemini))
 
 
 def provider_tables(parsed: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:
@@ -264,5 +250,3 @@ def choose_provider(parsed: Mapping[str, Any], requested_id: str, base_url: str,
     name = table.get("name")
     selected_name = name.strip() if isinstance(name, str) and name.strip() else "CLIProxyAPI"
     return Provider(provider_id, selected_name, selected_base, selected_env, provider_id not in tables)
-
-

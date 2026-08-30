@@ -19,20 +19,11 @@ class LayoutTests(unittest.TestCase):
         authority = json.loads((PLUGIN / "authority.json").read_text())
         self.assertEqual(authority["schema"], 1)
         self.assertEqual(authority["marketplace"], "cliproxy")
-        self.assertEqual(
-            authority["release"],
-            {"name": "cliproxy-plugins", "version": "2.0.0"},
-        )
-        self.assertEqual(
-            authority["consumer"],
-            {"name": "codex-moa", "version": "2.0.0"},
-        )
+        self.assertEqual(authority["release"], {"name": "cliproxy-plugins", "version": "2.0.0"})
+        self.assertEqual(authority["consumer"], {"name": "codex-moa", "version": "2.0.0"})
         self.assertEqual(authority["authority"]["name"], "cliproxy-models")
-        self.assertEqual(authority["authority"]["version"], "1.0.0")
-        self.assertEqual(
-            authority["authority"]["scripts"],
-            ["catalog.py", "plugin.py"],
-        )
+        self.assertEqual(authority["authority"]["version"], "1.1.0")
+        self.assertEqual(authority["authority"]["scripts"], ["catalog.py", "plugin.py"])
         self.assertNotIn("CLIPROXY_API_KEY", json.dumps(authority))
 
         mcp = json.loads((PLUGIN / ".mcp.json").read_text())

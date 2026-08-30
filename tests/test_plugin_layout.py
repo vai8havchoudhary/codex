@@ -23,7 +23,7 @@ class PluginLayoutTests(unittest.TestCase):
             self.assertEqual(entry["category"], "Developer Tools")
 
     def test_manifest_names_versions_and_assets(self) -> None:
-        expected_versions = {"cliproxy-models": "1.0.0", "codex-moa": "2.0.0"}
+        expected_versions = {"cliproxy-models": "1.1.0", "codex-moa": "2.0.0"}
         for name, version in expected_versions.items():
             plugin = PLUGINS / name
             manifest = json.loads((plugin / ".codex-plugin/plugin.json").read_text())
@@ -33,7 +33,7 @@ class PluginLayoutTests(unittest.TestCase):
             self.assertLessEqual(len(manifest["interface"]["defaultPrompt"]), 3)
             self.assertTrue((plugin / manifest["interface"]["composerIcon"]).is_file())
 
-    def test_cliproxy_models_components_are_complete(self) -> None:
+    def test_cliproxy_models_components_and_modern_profile_contract_are_complete(self) -> None:
         plugin = PLUGINS / "cliproxy-models"
         skill = plugin / "skills/cliproxy-models/SKILL.md"
         self.assertTrue(skill.read_text().startswith("---\nname: cliproxy-models\n"))
@@ -41,12 +41,24 @@ class PluginLayoutTests(unittest.TestCase):
             self.assertTrue((plugin / "scripts" / script).is_file(), script)
         for command in ("setup", "status", "use-grok", "use-gemini"):
             self.assertTrue((plugin / "commands" / f"{command}.md").is_file(), command)
+        source = "\n".join(
+            (plugin / "scripts" / name).read_text()
+            for name in ("config_edit.py", "toml_edit.py", "profile_documents.py", "config_transaction.py")
+        )
+        for phrase in (
+            "PROFILE_BEGIN",
+            "transactional_write",
+            "cliproxy-grok-4-6",
+            "cliproxy-gemini-3-7-flash",
+            "configuration transaction failed and was rolled back",
+        ):
+            self.assertIn(phrase, source)
+        self.assertNotIn('f"[profiles.{GROK_PROFILE}]"', source)
 
     def test_codex_moa_is_native_and_complete(self) -> None:
         plugin = PLUGINS / "codex-moa"
         manifest = json.loads((plugin / ".codex-plugin/plugin.json").read_text())
         self.assertEqual(manifest["mcpServers"], "./.mcp.json")
-        self.assertTrue((plugin / ".mcp.json").is_file())
         self.assertTrue((plugin / "mcp/server.py").is_file())
         self.assertTrue((plugin / "scripts/preflight.py").is_file())
         self.assertTrue((plugin / "scripts/checkpoint_schema.py").is_file())

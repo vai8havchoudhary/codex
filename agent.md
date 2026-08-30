@@ -2,78 +2,43 @@
 
 ## Product boundary
 
-The marketplace exposes one model-setup plugin and one native long-horizon coordination plugin.
+### `cliproxy-models` 1.1.0
 
-### `cliproxy-models`
+The sole model-admission and Codex-provider configuration authority. It reads both CLIProxyAPI catalogs, admits exact common IDs, refuses ambiguity, and writes one provider plus two modern profile overlays. It never inspects proxy accounts or chooses routing policy.
 
-This is the sole model-admission and Codex-provider configuration authority. It:
+Managed documents:
 
-- reads both CLIProxyAPI model catalog views;
-- admits exact Grok 4.6 and Gemini 3.7 Flash aliases only when the same ID appears in both;
-- refuses ambiguity and nearby versions;
-- writes one provider and two stable Codex profiles;
-- persists only `env_key = "CLIPROXY_API_KEY"`;
-- preserves unrelated TOML and writes atomically.
+```text
+~/.codex/config.toml
+~/.codex/cliproxy-grok-4-6.config.toml
+~/.codex/cliproxy-gemini-3-7-flash.config.toml
+```
 
-It does not inspect proxy account files or choose account-routing policy.
+The base owns the shared provider and selected default. Each overlay owns managed top-level `model` and `model_provider` keys. Legacy `[profiles.*]` tables and top-level profile selectors are not current Codex configuration.
 
-### `codex-moa`
+The three paths form one transaction: snapshot, ownership/path validation, coordinated backups, atomic replacements, post-validation, and exact rollback. Existing files become mode `0600`; new files are created mode `0600`. Equal bytes and safe modes are a no-op. User-owned collisions and malformed or unsafe paths are refused rather than overwritten.
 
-This plugin is a native Codex coordination policy. It uses Codex's own agent tree, model overrides, messaging, bounded history forks, skills, commands, and agent definitions. It contains no external model loop.
+### `codex-moa` 2.0.0
 
-The root thread is the coordinator and default single writer. Other models are consulted at high-leverage boundaries:
+A native Codex coordination policy using Codex's own agent tree, model overrides, messaging, bounded forks, skills, commands, and checkpoint MCP server. It contains no external model loop.
 
-1. localization;
-2. plan criticism;
-3. recovery after concrete validation failure;
-4. independent final review.
+The root is the coordinator and default single writer. The opposite model is consulted at localization, plan criticism, concrete-failure recovery, and independent final review—not after every step.
 
-The policy intentionally avoids permanent multi-model debate. One accepted plan and one acting patch trajectory preserve coherence.
-
-## Packaged model-authority dependency
-
-`plugins/codex-moa/authority.json` is the packaged compatibility contract between the coordination plugin and the single model-admission authority. It pins:
+## Packaged authority dependency
 
 ```text
 marketplace:       cliproxy
 release:           cliproxy-plugins 2.0.0
 consumer:          codex-moa 2.0.0
-model authority:   cliproxy-models 1.0.0
+model authority:   cliproxy-models 1.1.0
 required scripts:  catalog.py, plugin.py
 ```
 
-The contract must align with `release.json` and both plugin manifests.
-
-Authority discovery supports two layouts only:
-
-```text
-Source:
-  <repo>/plugins/codex-moa
-  <repo>/plugins/cliproxy-models
-  <repo>/release.json
-
-Installed versioned Codex cache:
-  <cache>/cliproxy/codex-moa/2.0.0
-  <cache>/cliproxy/cliproxy-models/1.0.0
-```
-
-The source path is admitted only when `release.json` matches `authority.json`. The cache path is selected by the exact pinned version. Never scan for a highest, newest, or first installed version. Missing, incompatible, malformed, or multiply located compatible authorities fail closed with an actionable installation error.
-
-The locator starts from the executing plugin root and never hardcodes a user home path. It reads only plugin manifests, the packaged contract, and source `release.json`; it never reads proxy account data or the value of `CLIPROXY_API_KEY`.
+Source and installed-cache discovery are release/pin bound. No highest/newest/first-version selection is allowed. Preflight loads model admission from the exact authority, then validates the provider in base `config.toml` and both sibling overlay files.
 
 ## Live alias contract
 
-VPS2 evidence on 2026-08-30 shows:
-
-```text
-grok-4.6
-gemini-3.7-flash-high
-gemini-3.7-flash-advisor
-```
-
-No bare `gemini-3.7-flash` exists. Both qualified Gemini aliases match the requested family/version/marker, so automatic resolution must raise an ambiguity error. Explicit `--gemini-model gemini-3.7-flash-high` is valid only if that exact ID is in both catalog views and the configured Codex profile matches it.
-
-Do not encode a preference between `-high` and `-advisor` in discovery logic.
+VPS2 evidence on 2026-08-30 shows `grok-4.6`, `gemini-3.7-flash-high`, and `gemini-3.7-flash-advisor`, with no bare Gemini alias. Automatic Gemini resolution must fail. Explicit `--gemini-model gemini-3.7-flash-high` is accepted only when present in both catalogs and equal to the profile overlay.
 
 ## Native council lifecycle
 
@@ -83,64 +48,22 @@ preflight -> localize -> plan -> implement -> validate -> review -> complete
                                       +-> recover-+
 ```
 
-- **Preflight:** verify repository/task authority, compatible packaged model authority, and exact model admission.
-- **Localize:** bounded read-only explorers answer distinct repository questions.
-- **Plan:** one writer synthesizes a dependency-aware plan; the opposite model challenges it.
-- **Implement:** one writer owns the patch surface unless explicit disjoint ownership is necessary.
-- **Validate:** repository-native commands and tests are authoritative.
-- **Recover:** open only after concrete failure or invalidated evidence; at most two coherent repair rounds.
-- **Review:** an opposite-model read-only verifier reviews the actual diff and gate evidence.
-- **Complete/blocked:** record the exact terminal state in an immutable checkpoint.
+- localize before editing;
+- accept one dependency-aware plan;
+- keep one writer unless disjoint ownership is explicit;
+- treat repository gates as authoritative;
+- allow at most two coherent repair rounds per blocker;
+- record immutable checkpoints and reconcile live state on resume;
+- require an opposite-model final review of the actual diff and evidence.
 
 ## Checkpoint MCP boundary
 
-`plugins/codex-moa/mcp/server.py` is a state store, not an orchestrator.
-
-Allowed tools:
-
-- `checkpoint_validate`
-- `checkpoint_put`
-- `checkpoint_get`
-- `checkpoint_list`
-
-Records contain objectives, decisions, evidence, changed paths, validation state, risks, retry budget, and next action. They exclude source-file bodies, conversations, credentials, tokens, cookies, account data, and environment dumps.
-
-Storage properties:
-
-- under `${CODEX_HOME:-~/.codex}/codex-moa/checkpoints`;
-- directory mode `0700`;
-- record mode `0600`;
-- immutable opaque handles;
-- canonical SHA-256 digest;
-- atomic replace and directory sync;
-- equal writes return the existing handle;
-- symlink paths are refused;
-- previous links must exist and retain `run_id` continuity.
-
-The MCP process receives only `CODEX_HOME`. Never add `CLIPROXY_API_KEY` or account-directory variables to `.mcp.json`.
-
-## Research-to-policy mapping
-
-The detailed references live in `plugins/codex-moa/references/long-horizon-research.md`.
-
-- SWE-agent and Agentless support deliberate repository interfaces, localization, and direct validation feedback.
-- CodePlan and MASAI support dependency-aware plans and bounded specialist roles.
-- Mixture-of-Agents supports model-diverse independent proposals, adapted here to high-leverage gates rather than every step.
-- Reflexion supports evidence-driven repair with compact external memory.
-
-These sources inform policy; none is copied as a competing runtime.
+The MCP is a state store, not an orchestrator. It receives only `CODEX_HOME`, stores compact immutable mode-`0600` records beneath a mode-`0700` directory, rejects secret fields/values and symlinks, and cannot call models or execute repository commands.
 
 ## Release authority
 
-`release.json` must map every marketplace plugin to the exact manifest version. `plugins/codex-moa/authority.json` must map the same bundle and plugin versions before release validation can pass.
+`release.json`, plugin manifests, and `authority.json` must align before validation succeeds. Bundle 2.0.0 intentionally includes a new `cliproxy-models` 1.1.0 because the historically released 1.0.0 bytes used obsolete profile tables and are immutable.
 
-The release workflow accepts only:
+The pre-correction exact-main provider/MCP/council evidence is documented in `docs/VPS2_GATE_2026-08-30.md`. A fresh exact-main reinstall and profile/council gate is still mandatory before creating `v2.0.0`.
 
-- annotated `v<release.version>` tags; or
-- exact-current-main `release/v<release.version>` promotion branches.
-
-It reruns all tests and packages the tracked source tree directly. Bootstrap archives, materialization workflows, generated source commits, and mutable release tags are forbidden.
-
-## Failure policy
-
-Fail closed when exact aliases are unresolved, the compatible model-authority version is missing, repository authority changed, writer ownership overlaps, required destructive work is unauthorized, a checkpoint path is unsafe, or the repair budget is exhausted. Record the exact blocker; never convert missing evidence into a success claim.
+Fail closed when exact aliases, authority versions, profile documents, repository authority, writer ownership, checkpoint safety, or validation evidence are unresolved.

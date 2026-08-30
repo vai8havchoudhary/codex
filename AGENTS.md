@@ -1,6 +1,6 @@
 # Repository instructions
 
-This repository is the `cliproxy` Codex plugin marketplace. It contains exactly two native Codex plugins:
+This repository is the `cliproxy` Codex marketplace with exactly two native plugins:
 
 - `cliproxy-models`
 - `codex-moa`
@@ -9,31 +9,30 @@ Read [agent.md](agent.md) before non-trivial changes.
 
 ## Non-negotiable invariants
 
-- Keep marketplace, directory, manifest, skill, dependency-contract, and release names aligned.
-- `release.json` is the marketplace bundle version authority.
-- `plugins/codex-moa/authority.json` must pin the exact compatible marketplace, bundle, consumer, and `cliproxy-models` version; it must align with `release.json` and both manifests.
-- Maintain exactly one Codex provider for CLIProxyAPI. Never create providers per upstream account.
+- `release.json` is the bundle authority; manifests and `plugins/codex-moa/authority.json` must align exactly.
+- The current contract is bundle `2.0.0`, `cliproxy-models` `1.1.0`, and `codex-moa` `2.0.0`.
+- Keep exactly one Codex provider for CLIProxyAPI; never create providers per upstream account.
 - Never read, enumerate, print, summarize, or persist proxy account files or the value of `CLIPROXY_API_KEY`.
-- Store only the environment-variable name `CLIPROXY_API_KEY` in Codex configuration.
-- Require exact Grok 4.6 and Gemini 3.7 Flash aliases in both CLIProxyAPI catalogs.
-- Current VPS2 evidence includes `grok-4.6`, `gemini-3.7-flash-high`, and `gemini-3.7-flash-advisor`, with no bare Gemini alias. Automatic selection must refuse the ambiguity; an explicit exact common alias may be admitted.
-- Support both the release-bound source layout and Codex's versioned plugin-cache layout without hardcoding a user home path.
-- Never select an arbitrary, latest, or first cached `cliproxy-models` version. Use only the exact version pinned by `authority.json`; missing or incompatible authorities fail closed.
-- Keep `codex-moa` native to Codex subagents, model overrides, skills, commands, agent definitions, and its checkpoint MCP server.
-- Do not add Hermes Agent, another scheduler, a second model gateway, or a parallel orchestration runtime.
-- The checkpoint MCP server may store compact immutable state only. It must not execute code, call models, receive the proxy key, or route accounts.
-- Preserve single-writer ownership, bounded fanout, bounded recovery, repository-native validation, and independent final review.
-- Keep configuration and checkpoint writes fail closed, atomic, permission-restricted, post-validated, and idempotent.
-- `.bootstrap/`, `native-moa.b64.part-*`, and `materialize-native-moa.yml` must remain physically absent.
+- Persist only the environment-variable name `CLIPROXY_API_KEY`.
+- Exact Grok 4.6 and Gemini 3.7 Flash IDs must appear in both CLIProxyAPI catalogs. The current `-high` / `-advisor` Gemini ambiguity must be refused unless one exact common ID is explicitly selected.
+- `cliproxy-models` owns a guarded three-file Codex configuration transaction: base `config.toml` plus both `<profile>.config.toml` overlays.
+- Never write managed `[profiles.*]` tables or a managed top-level `profile` selector. Codex 0.134.0+ uses separate profile overlay files.
+- Preserve unrelated TOML/comments only where ownership is unambiguous; unmanaged collisions, malformed TOML/markers, symlinks, non-regular files, or concurrent changes fail closed.
+- Base/profile writes must be one backup-aware, permission-restricted, atomic, post-validated, idempotent transaction with exact rollback.
+- Support both release-bound source and versioned plugin-cache authority layouts without hardcoded home paths. Never choose an arbitrary cached authority version.
+- `codex-moa` remains native to Codex subagents and its checkpoint-only MCP server. Do not add Hermes, another scheduler, model loop, gateway, or orchestration runtime.
+- The MCP server receives only `CODEX_HOME`; it cannot call models, execute code, or receive proxy authority.
+- Keep single-writer ownership, bounded fanout/recovery, repository-native validation, and independent final review.
+- `.bootstrap/`, `native-moa.b64.part-*`, `materialize-native-moa.yml`, and `plugins/hermes-moa` remain physically absent.
 
 ## Change workflow
 
-1. Inspect marketplace/release authority, `authority.json`, both plugin manifests, relevant skills/commands/agents, MCP config/server, and tests.
-2. Make one coherent change without duplicating model admission or orchestration authority.
-3. Update tests and user docs for changed behavior or live alias evidence.
-4. Align manifest versions, `release.json`, `authority.json`, and `CHANGELOG.md` for release changes.
-5. Run every command under **Development validation** in `README.md`.
-6. Reread the exact diff and GitHub checks before merge.
-7. For publication, follow `docs/RELEASING.md`. Never create or move a release tag during ordinary implementation.
+1. Verify exact main/branch guards.
+2. Inspect release/manifest/authority contracts and affected production paths/tests.
+3. Make one coherent authority-preserving change.
+4. Align versions, docs, tests, and changelog.
+5. Run every gate in README.md.
+6. Independently reread the exact PR diff and checks.
+7. Merge only when green; never publish or move a release tag during implementation.
 
-Do not claim a live CLIProxyAPI, Codex Desktop, or VPS2 gate unless it was actually run on the exact commit being adjudicated.
+Do not claim a live VPS2/Codex gate unless it ran against the exact commit being adjudicated. Preserve the prior evidence in `docs/VPS2_GATE_2026-08-30.md` without treating it as a waiver for the post-correction gate.

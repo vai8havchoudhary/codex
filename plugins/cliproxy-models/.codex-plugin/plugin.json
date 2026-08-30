@@ -1,7 +1,7 @@
 {
   "name": "cliproxy-models",
-  "version": "1.0.0",
-  "description": "Configure CLIProxyAPI-backed Grok 4.6 and Gemini 3.7 Flash models in Codex Desktop.",
+  "version": "1.1.0",
+  "description": "Configure CLIProxyAPI-backed Grok 4.6 and Gemini 3.7 Flash models using modern Codex profile overlay files.",
   "author": {
     "name": "Vaibhav Choudhary",
     "url": "https://github.com/vai8havchoudhary"
@@ -21,7 +21,7 @@
   "interface": {
     "displayName": "CLIProxyAPI Models",
     "shortDescription": "Add Grok 4.6 and Gemini 3.7 Flash to Codex",
-    "longDescription": "Configure one CLIProxyAPI provider for Codex Desktop, validate both live model catalogs, and expose exact Grok 4.6 and Gemini 3.7 Flash profiles without copying upstream account credentials into Codex.",
+    "longDescription": "Configure one CLIProxyAPI provider in Codex, validate both live model catalogs, and write modern per-profile overlay files for exact Grok 4.6 and Gemini 3.7 Flash aliases without copying upstream account credentials into Codex.",
     "developerName": "Vaibhav Choudhary",
     "category": "Developer Tools",
     "capabilities": [

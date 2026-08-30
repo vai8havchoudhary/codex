@@ -1,15 +1,13 @@
 # Setup and operations
 
-This marketplace installs two native Codex plugins: `cliproxy-models` and `codex-moa`.
+This marketplace installs `cliproxy-models` 1.1.0 and `codex-moa` 2.0.0 under marketplace bundle 2.0.0.
 
 ## Prerequisites
 
-- Codex with plugin marketplace support.
+- Codex CLI/Desktop with plugin marketplace support and the modern profile-file contract.
 - Python 3.11 or newer.
-- CLIProxyAPI reachable from the environment that launches Codex.
-- Exact Grok 4.6 and an explicitly selected Gemini 3.7 Flash alias exported in both CLIProxyAPI catalog views.
-
-No Hermes Agent installation is required or supported by `codex-moa`.
+- CLIProxyAPI reachable from the process that launches Codex.
+- Exact Grok 4.6 and an explicitly selected Gemini 3.7 Flash alias present in both catalog views.
 
 ## 1. Export the proxy contract
 
@@ -18,108 +16,91 @@ export CLIPROXY_URL=http://127.0.0.1:8317
 export CLIPROXY_API_KEY="$(<"$HOME/.cli-proxy-api/.proxy-api-key")"
 ```
 
-Do not paste the key into Codex configuration or plugin arguments. The model plugin stores only:
+Never paste the key into TOML or plugin arguments. Only `env_key = "CLIPROXY_API_KEY"` is persisted.
 
-```toml
-env_key = "CLIPROXY_API_KEY"
-```
-
-A Codex Desktop process launched outside this environment may not inherit the variables. Configure the application launch environment and then fully restart Codex.
-
-## 2. Add the marketplace
+## 2. Install or upgrade
 
 ```bash
 codex plugin marketplace add vai8havchoudhary/codex --ref main
-```
-
-For an existing installation:
-
-```bash
+# Existing marketplace:
 codex plugin marketplace upgrade cliproxy
-```
 
-## 3. Install both native plugins
-
-```bash
 codex plugin add cliproxy-models@cliproxy
 codex plugin add codex-moa@cliproxy
 ```
 
-For the marketplace 2.0.0 contract, Codex installs:
+Expected versioned cache shape:
 
 ```text
-cliproxy-models 1.0.0
-codex-moa       2.0.0
-```
-
-The plugins are stored independently in the versioned Codex cache. A representative shape is:
-
-```text
-<CODEX_HOME>/plugins/cache/cliproxy/cliproxy-models/1.0.0
+<CODEX_HOME>/plugins/cache/cliproxy/cliproxy-models/1.1.0
 <CODEX_HOME>/plugins/cache/cliproxy/codex-moa/2.0.0
 ```
 
-The concrete `CODEX_HOME` may differ. No user home path is hardcoded by the plugins.
+No user home path is hardcoded. Remove obsolete `hermes-moa@cliproxy` when upgrading from 1.1.x.
 
-Remove the obsolete Hermes-dependent plugin when upgrading from marketplace 1.1.x:
+## 3. Select the exact Gemini alias
 
-```bash
-codex plugin remove hermes-moa@cliproxy
-```
+VPS2 exports `grok-4.6`, `gemini-3.7-flash-high`, and `gemini-3.7-flash-advisor`, but no bare Gemini alias. Automatic setup must refuse the two matching Gemini routes.
 
-## 4. Select the exact Gemini alias
-
-VPS2 currently exports:
-
-```text
-grok-4.6
-gemini-3.7-flash-high
-gemini-3.7-flash-advisor
-```
-
-Because there is no bare `gemini-3.7-flash` and two exact family/version/marker candidates exist, Automatic setup must refuse this ambiguity. The resulting error is intentional.
-
-Choose one explicit exact ID after deciding which route you want. Example using `-high`:
-
-```text
-@cliproxy-models Set up CLIProxyAPI models with --gemini-model gemini-3.7-flash-high and use Grok by default.
-```
-
-Equivalent direct entry point when operating inside the `cliproxy-models` plugin directory:
+Example explicit setup:
 
 ```bash
-python3 scripts/plugin.py \
+python3 <installed-cliproxy-models-root>/scripts/plugin.py \
   --gemini-model gemini-3.7-flash-high \
   setup grok
 ```
 
-An explicit alias is accepted only when it is present in both:
+The explicit ID is accepted only when returned by both:
 
 ```text
 GET /v1/models
 GET /v1/models?client_version=999.0.0
 ```
 
-Do not infer that `-high` or `-advisor` is preferable from the name. The plugin performs admission, not account-policy selection.
+## 4. Three-file profile transaction
 
-## 5. Verify model setup
-
-```text
-@cliproxy-models Check my CLIProxyAPI model setup using --gemini-model gemini-3.7-flash-high.
-```
-
-The managed Codex profiles are:
+Setup maintains exactly:
 
 ```text
-cliproxy-grok-4-6
-cliproxy-gemini-3-7-flash
+BASE    ~/.codex/config.toml
+GROK    ~/.codex/cliproxy-grok-4-6.config.toml
+GEMINI  ~/.codex/cliproxy-gemini-3-7-flash.config.toml
 ```
 
-The Gemini profile name is stable even when its exact admitted model ID is `gemini-3.7-flash-high` or another explicitly selected exact alias.
+The base file contains one provider plus the selected default model/provider. The two overlays contain top-level values like:
+
+```toml
+model = "grok-4.6"
+model_provider = "cliproxyapi"
+```
+
+There must be no managed top-level `profile` selector and no managed `[profiles.*]` table in `config.toml`.
+
+### Migration policy
+
+- A legacy selector equal to one of this plugin's profile names is removed.
+- Legacy tables are migrated only when enclosed by the plugin's exact managed markers.
+- Unmanaged selectors/tables, malformed marker regions, user-owned top-level `model`/`model_provider` collisions in overlay files, symlinks, and non-regular files fail closed.
+- Unrelated TOML and comments are preserved when ownership is unambiguous.
+
+### Transaction properties
+
+Before writing, setup snapshots all three paths and verifies they have not changed concurrently. Every changed existing file receives a timestamped mode-`0600` backup. Temporary files are fsynced and atomically replaced; all three final documents are reparsed and cross-validated. Any failure restores exact original bytes/modes and removes newly created partial files and transaction backups. An equal re-run writes nothing and creates no backup.
+
+## 5. Verify profile execution
+
+After fully restarting Codex:
+
+```bash
+codex exec --profile cliproxy-grok-4-6 'Reply with GROK_PROFILE_OK'
+codex exec --profile cliproxy-gemini-3-7-flash 'Reply with GEMINI_PROFILE_OK'
+```
+
+Both commands should load the base provider and then their separate overlay file.
 
 ## 6. Verify native council preflight
 
-From the installed `codex-moa` 2.0.0 plugin root:
+From installed `codex-moa` 2.0.0:
 
 ```bash
 python3 scripts/preflight.py \
@@ -128,113 +109,45 @@ python3 scripts/preflight.py \
   --json
 ```
 
-`codex-moa/authority.json` binds preflight to `cliproxy-models` 1.0.0 and marketplace bundle 2.0.0. The locator supports:
+`authority.json` pins `cliproxy-models` 1.1.0. Preflight verifies the base provider and both modern profile overlay files. Missing files, legacy base profiles, mismatched providers/models, unsafe paths, or the wrong installed authority version are actionable failures.
+
+## 7. Run or resume a native council
 
 ```text
-Source checkout:
-  <repo>/plugins/codex-moa
-  <repo>/plugins/cliproxy-models
-  <repo>/release.json
-
-Versioned Codex cache:
-  <cache>/cliproxy/codex-moa/2.0.0
-  <cache>/cliproxy/cliproxy-models/1.0.0
-```
-
-In a source checkout, `release.json` must match `authority.json`. In the installed cache, preflight uses only the exact pinned `cliproxy-models` version. It does not choose a latest or first directory when other versions are present.
-
-The preflight reuses the model plugin's catalog and endpoint authority, verifies that the live exact IDs equal the installed Codex profiles, and performs no write.
-
-## 7. Run a native long-horizon council
-
-Grok-led:
-
-```text
-@codex-moa Run this task with a Grok-led native council. Localize first, maintain one writer, checkpoint validated milestones, and require independent final review.
-```
-
-Gemini-led:
-
-```text
-@codex-moa Run this task with a Gemini-led native council. Use Grok for independent criticism, failure analysis, and final review.
-```
-
-The plugin uses Codex's own subagent tools. It does not start Hermes or a separate scheduler.
-
-## 8. Resume
-
-```text
+@codex-moa Run this task with a Grok-led native council.
+@codex-moa Run this task with a Gemini-led native council.
 @codex-moa Resume checkpoint <opaque-handle>.
 ```
 
-Resume first reconciles the live repository, branch, worktree, task authority, exact model admission, and the last validated milestone. A checkpoint is not permission to trust stale source state.
-
-## 9. Check checkpoint status
-
-```text
-@codex-moa Show status for run <run-id>.
-```
-
-The checkpoint MCP server stores immutable JSON records beneath:
-
-```text
-${CODEX_HOME:-$HOME/.codex}/codex-moa/checkpoints
-```
-
-The directory is mode `0700`; records are mode `0600`. The server receives only `CODEX_HOME` and rejects sensitive field names and common secret-value patterns.
-
-## Upgrade
-
-```bash
-codex plugin marketplace upgrade cliproxy
-```
-
-Then reinstall or upgrade both plugins using the Codex plugin UI/CLI and restart Codex Desktop. Re-run exact model preflight because available proxy aliases may have changed.
+The checkpoint server stores immutable JSON beneath `${CODEX_HOME:-$HOME/.codex}/codex-moa/checkpoints` with directory mode `0700` and file mode `0600`. It receives only `CODEX_HOME`.
 
 ## Rollback
 
-Model setup creates timestamped backups of `~/.codex/config.toml` when bytes change. Quit Codex, restore the intended backup, and restart.
-
-For a bad marketplace release, install a known release ref rather than moving a published tag. Do not copy checkpoint records into Codex configuration.
-
-## Uninstall
-
-```bash
-codex plugin remove codex-moa@cliproxy
-codex plugin remove cliproxy-models@cliproxy
-```
-
-Removing `codex-moa` does not delete checkpoint records automatically. Review and remove `${CODEX_HOME:-$HOME/.codex}/codex-moa` manually only when you no longer need resume evidence.
+Quit Codex. Restore the intended coordinated `*.bak.<timestamp>` copies for the base and any pre-existing overlays, or remove overlays that did not exist before the transaction. Restart Codex and re-run setup/preflight. The installer itself performs this rollback automatically when its transaction fails.
 
 ## Troubleshooting
 
-### Automatic Gemini setup says multiple aliases
+### `--profile` reports legacy profile configuration
 
-Expected for the current VPS2 `-high` and `-advisor` catalog. Pass one exact `--gemini-model` value that exists in both catalogs.
+Upgrade/reinstall `cliproxy-models` 1.1.0 and rerun setup. Do not manually recreate `[profiles.*]`; current Codex expects `<profile>.config.toml` overlays.
 
-### Explicit alias is not present in both catalogs
+### Automatic Gemini setup reports ambiguity
 
-Do not bypass the check. Inspect CLIProxyAPI's two model catalog responses and correct the proxy/export configuration or choose a common exact alias.
+Expected for the VPS2 `-high` / `-advisor` catalog. Pass one exact common alias explicitly.
 
-### Native council preflight disagrees with the profile
+### Preflight cannot locate model authority
 
-Re-run `cliproxy-models` setup with the same exact explicit alias, then fully restart Codex and rerun preflight.
+Ensure the exact cache directories exist:
 
-### Native council preflight cannot locate the model authority
-
-The exact `cliproxy-models` version pinned by `codex-moa/authority.json` is missing, malformed, or incompatible. Repair the marketplace installation:
-
-```bash
-codex plugin marketplace upgrade cliproxy
-codex plugin add cliproxy-models@cliproxy
+```text
+cliproxy-models/1.1.0
+codex-moa/2.0.0
 ```
 
-Confirm both required versions are enabled. Preflight deliberately refuses to select another cached version, even when a newer directory exists. Do not copy authority scripts between cache versions and do not point the checkpoint MCP server at model or account data.
+Then upgrade the marketplace and reinstall the model plugin. Preflight never guesses another version.
 
-### Checkpoint server is unavailable
+### Preflight reports a missing or mismatched overlay
 
-Confirm the plugin is installed, `python3` is available, `.mcp.json` is present, and `CODEX_HOME` is writable. Do not redirect the server to proxy account directories.
+Rerun the exact same explicit model setup, fully restart Codex, and retry preflight. Do not bypass the mismatch.
 
-### A council repeats failures
-
-The policy allows at most two coherent recovery rounds per blocker. Record a blocked checkpoint with exact evidence instead of continuing an unbounded loop.
+See [`docs/VPS2_GATE_2026-08-30.md`](docs/VPS2_GATE_2026-08-30.md) for the prior exact-main evidence and why a fresh post-correction gate is still required.

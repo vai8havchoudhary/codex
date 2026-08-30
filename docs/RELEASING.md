@@ -1,6 +1,6 @@
 # Releasing the CLIProxyAPI native Codex marketplace
 
-`release.json` is authoritative for the marketplace bundle version and every plugin manifest version.
+`release.json` is authoritative for the bundle version and every plugin manifest version.
 
 ## Current release contract
 
@@ -9,75 +9,44 @@
   "name": "cliproxy-plugins",
   "version": "2.0.0",
   "plugins": {
-    "cliproxy-models": "1.0.0",
+    "cliproxy-models": "1.1.0",
     "codex-moa": "2.0.0"
   }
 }
 ```
 
-The release tag must be exactly `v<release.version>`. `CHANGELOG.md` must contain a dated section for that version.
+`codex-moa/authority.json` must pin the same bundle, consumer, and `cliproxy-models` 1.1.0 authority.
+
+The model-plugin minor bump is mandatory: `cliproxy-models` 1.0.0 has historical released bytes that generated obsolete `[profiles.*]` tables. Do not silently replace or reinterpret those immutable bytes.
 
 ## Pre-release checklist
 
-1. Confirm the exact intended `main` commit and tree.
-2. Confirm merged-main validation is green on that SHA.
-3. Confirm `.bootstrap/`, `materialize-native-moa.yml`, and `plugins/hermes-moa` are absent.
-4. Confirm marketplace entries equal the keys in `release.json`.
-5. Confirm every mapped version equals its plugin manifest.
-6. Confirm both plugin docs reflect current live alias behavior.
-7. Run the full validation block in `README.md`.
-8. Run an exact-main live installation and CLIProxyAPI/Codex smoke gate when available.
-9. Record unavailable live gates honestly.
+1. Confirm exact intended `main` commit and tree and green merged-main validation.
+2. Confirm marketplace, `release.json`, manifests, and `authority.json` align.
+3. Confirm `.bootstrap/`, materialization workflow, and `plugins/hermes-moa` are absent.
+4. Run the complete validation block in README.md.
+5. On exact main, fresh-install both versions from the live marketplace.
+6. Run automatic Gemini ambiguity refusal and explicit `gemini-3.7-flash-high` setup.
+7. Verify base `config.toml` contains no `profile` selector or `[profiles.*]` table.
+8. Verify both separate profile files exist, are mode `0600`, and work with `codex exec --profile`.
+9. Verify setup idempotence, default switching/restoration, exact model preflight, checkpoint MCP round trip, and one bounded native council.
+10. Record exact evidence and unresolved blockers honestly.
 
-Do not publish before the exact-main live gate when release adjudication requires it.
+The prior evidence in `VPS2_GATE_2026-08-30.md` is useful but predates the profile-file correction. Do not publish before the fresh exact-main gate.
 
-## Publication path A: annotated tag
+## Publication paths
 
-From exact current `main`:
+Only after owner adjudication:
 
-```bash
-git fetch origin
-git switch main
-git pull --ff-only
-git tag -a v2.0.0 -m "CLIProxyAPI Plugins v2.0.0"
-git push origin v2.0.0
-```
+- annotated tag exactly `v2.0.0`; or
+- guarded branch exactly `release/v2.0.0` at exact current `main`.
 
-The workflow refuses a tag that does not match `release.json` or does not pass validation.
-
-## Publication path B: guarded promotion branch
-
-For an authorized connector that cannot directly create tag refs, create exactly:
-
-```text
-release/v2.0.0
-```
-
-at exact current `main`. The workflow requires the branch SHA to equal `origin/main`, reruns all gates, creates or verifies the annotated tag, builds the archive, and publishes the release.
-
-Do not add commits to a promotion branch. If `main` changes, delete/recreate the branch from the newly adjudicated commit.
+The workflow requires the promotion branch to equal `origin/main`, reruns all gates, creates/verifies the annotated tag, and packages tracked source. Do not move a published tag. Do not add commits to a promotion branch.
 
 ## Release archive
 
-The workflow packages tracked source directly:
-
-```text
-.agents/plugins/marketplace.json
-plugins/
-release.json
-README.md
-SETUP.md
-CHANGELOG.md
-LICENSE
-PRIVACY.md
-SECURITY.md
-TERMS.md
-```
-
-It must include `cliproxy-models` and `codex-moa`. Bootstrap archives, Hermes sources, materialization workflows, local configuration, keys, checkpoints, backups, caches, and build output must remain absent.
+The archive must contain both native plugins, `release.json`, marketplace metadata, and public setup/security documentation. It must not contain local Codex config/profile files, API keys, checkpoints, backups, caches, bootstrap payloads, Hermes sources, or materialization workflows.
 
 ## Post-release verification
 
-Verify tag target, release assets, checksum, archive contents, marketplace installation, exact model preflight, native checkpoint MCP discovery, and one bounded council smoke task.
-
-Do not move a published tag. Fix forward with a new patch version.
+Verify tag target, release assets/checksum, archive contents, installed versions 1.1.0/2.0.0, modern profile execution, exact preflight, MCP discovery/round trip, and a bounded council smoke run.
