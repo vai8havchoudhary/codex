@@ -8,13 +8,33 @@ PLUGIN = Path(__file__).resolve().parents[1]
 
 
 class LayoutTests(unittest.TestCase):
-    def test_manifest_mcp_skill_agents_and_commands(self) -> None:
+    def test_manifest_mcp_skill_agents_commands_and_authority_contract(self) -> None:
         manifest = json.loads((PLUGIN / ".codex-plugin/plugin.json").read_text())
         self.assertEqual(manifest["name"], "codex-moa")
         self.assertEqual(manifest["version"], "2.0.0")
         self.assertEqual(manifest["skills"], "./skills/")
         self.assertEqual(manifest["mcpServers"], "./.mcp.json")
         self.assertTrue((PLUGIN / manifest["interface"]["composerIcon"]).is_file())
+
+        authority = json.loads((PLUGIN / "authority.json").read_text())
+        self.assertEqual(authority["schema"], 1)
+        self.assertEqual(authority["marketplace"], "cliproxy")
+        self.assertEqual(
+            authority["release"],
+            {"name": "cliproxy-plugins", "version": "2.0.0"},
+        )
+        self.assertEqual(
+            authority["consumer"],
+            {"name": "codex-moa", "version": "2.0.0"},
+        )
+        self.assertEqual(authority["authority"]["name"], "cliproxy-models")
+        self.assertEqual(authority["authority"]["version"], "1.0.0")
+        self.assertEqual(
+            authority["authority"]["scripts"],
+            ["catalog.py", "plugin.py"],
+        )
+        self.assertNotIn("CLIPROXY_API_KEY", json.dumps(authority))
+
         mcp = json.loads((PLUGIN / ".mcp.json").read_text())
         definition = mcp["mcpServers"]["codex-moa-checkpoints"]
         self.assertEqual(definition["command"], "python3")
@@ -44,7 +64,14 @@ class LayoutTests(unittest.TestCase):
 
     def test_research_mapping_is_primary_source_grounded(self) -> None:
         research = (PLUGIN / "references/long-horizon-research.md").read_text()
-        for arxiv_id in ("2405.15793", "2407.01489", "2309.12499", "2406.11638", "2406.04692", "2303.11366"):
+        for arxiv_id in (
+            "2405.15793",
+            "2407.01489",
+            "2309.12499",
+            "2406.11638",
+            "2406.04692",
+            "2303.11366",
+        ):
             self.assertIn(arxiv_id, research)
         self.assertIn("one acting trajectory", research)
         self.assertIn("does not implement a competing scheduler", research)

@@ -30,6 +30,37 @@ The root thread is the coordinator and default single writer. Other models are c
 
 The policy intentionally avoids permanent multi-model debate. One accepted plan and one acting patch trajectory preserve coherence.
 
+## Packaged model-authority dependency
+
+`plugins/codex-moa/authority.json` is the packaged compatibility contract between the coordination plugin and the single model-admission authority. It pins:
+
+```text
+marketplace:       cliproxy
+release:           cliproxy-plugins 2.0.0
+consumer:          codex-moa 2.0.0
+model authority:   cliproxy-models 1.0.0
+required scripts:  catalog.py, plugin.py
+```
+
+The contract must align with `release.json` and both plugin manifests.
+
+Authority discovery supports two layouts only:
+
+```text
+Source:
+  <repo>/plugins/codex-moa
+  <repo>/plugins/cliproxy-models
+  <repo>/release.json
+
+Installed versioned Codex cache:
+  <cache>/cliproxy/codex-moa/2.0.0
+  <cache>/cliproxy/cliproxy-models/1.0.0
+```
+
+The source path is admitted only when `release.json` matches `authority.json`. The cache path is selected by the exact pinned version. Never scan for a highest, newest, or first installed version. Missing, incompatible, malformed, or multiply located compatible authorities fail closed with an actionable installation error.
+
+The locator starts from the executing plugin root and never hardcodes a user home path. It reads only plugin manifests, the packaged contract, and source `release.json`; it never reads proxy account data or the value of `CLIPROXY_API_KEY`.
+
 ## Live alias contract
 
 VPS2 evidence on 2026-08-30 shows:
@@ -52,7 +83,7 @@ preflight -> localize -> plan -> implement -> validate -> review -> complete
                                       +-> recover-+
 ```
 
-- **Preflight:** verify repository/task authority and exact model admission.
+- **Preflight:** verify repository/task authority, compatible packaged model authority, and exact model admission.
 - **Localize:** bounded read-only explorers answer distinct repository questions.
 - **Plan:** one writer synthesizes a dependency-aware plan; the opposite model challenges it.
 - **Implement:** one writer owns the patch surface unless explicit disjoint ownership is necessary.
@@ -101,7 +132,9 @@ These sources inform policy; none is copied as a competing runtime.
 
 ## Release authority
 
-`release.json` must map every marketplace plugin to the exact manifest version. The release workflow accepts only:
+`release.json` must map every marketplace plugin to the exact manifest version. `plugins/codex-moa/authority.json` must map the same bundle and plugin versions before release validation can pass.
+
+The release workflow accepts only:
 
 - annotated `v<release.version>` tags; or
 - exact-current-main `release/v<release.version>` promotion branches.
@@ -110,4 +143,4 @@ It reruns all tests and packages the tracked source tree directly. Bootstrap arc
 
 ## Failure policy
 
-Fail closed when exact aliases are unresolved, repository authority changed, writer ownership overlaps, required destructive work is unauthorized, a checkpoint path is unsafe, or the repair budget is exhausted. Record the exact blocker; never convert missing evidence into a success claim.
+Fail closed when exact aliases are unresolved, the compatible model-authority version is missing, repository authority changed, writer ownership overlaps, required destructive work is unauthorized, a checkpoint path is unsafe, or the repair budget is exhausted. Record the exact blocker; never convert missing evidence into a success claim.

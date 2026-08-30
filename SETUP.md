@@ -45,6 +45,22 @@ codex plugin add cliproxy-models@cliproxy
 codex plugin add codex-moa@cliproxy
 ```
 
+For the marketplace 2.0.0 contract, Codex installs:
+
+```text
+cliproxy-models 1.0.0
+codex-moa       2.0.0
+```
+
+The plugins are stored independently in the versioned Codex cache. A representative shape is:
+
+```text
+<CODEX_HOME>/plugins/cache/cliproxy/cliproxy-models/1.0.0
+<CODEX_HOME>/plugins/cache/cliproxy/codex-moa/2.0.0
+```
+
+The concrete `CODEX_HOME` may differ. No user home path is hardcoded by the plugins.
+
 Remove the obsolete Hermes-dependent plugin when upgrading from marketplace 1.1.x:
 
 ```bash
@@ -69,7 +85,7 @@ Choose one explicit exact ID after deciding which route you want. Example using 
 @cliproxy-models Set up CLIProxyAPI models with --gemini-model gemini-3.7-flash-high and use Grok by default.
 ```
 
-Equivalent direct entry point from the plugin directory:
+Equivalent direct entry point when operating inside the `cliproxy-models` plugin directory:
 
 ```bash
 python3 scripts/plugin.py \
@@ -103,15 +119,31 @@ The Gemini profile name is stable even when its exact admitted model ID is `gemi
 
 ## 6. Verify native council preflight
 
-From the installed `codex-moa` plugin root:
+From the installed `codex-moa` 2.0.0 plugin root:
 
 ```bash
 python3 scripts/preflight.py \
+  --grok-model grok-4.6 \
   --gemini-model gemini-3.7-flash-high \
   --json
 ```
 
-This reuses the sibling model plugin's catalog authority and verifies that the live exact IDs equal the installed Codex profiles. It performs no write.
+`codex-moa/authority.json` binds preflight to `cliproxy-models` 1.0.0 and marketplace bundle 2.0.0. The locator supports:
+
+```text
+Source checkout:
+  <repo>/plugins/codex-moa
+  <repo>/plugins/cliproxy-models
+  <repo>/release.json
+
+Versioned Codex cache:
+  <cache>/cliproxy/codex-moa/2.0.0
+  <cache>/cliproxy/cliproxy-models/1.0.0
+```
+
+In a source checkout, `release.json` must match `authority.json`. In the installed cache, preflight uses only the exact pinned `cliproxy-models` version. It does not choose a latest or first directory when other versions are present.
+
+The preflight reuses the model plugin's catalog and endpoint authority, verifies that the live exact IDs equal the installed Codex profiles, and performs no write.
 
 ## 7. Run a native long-horizon council
 
@@ -187,6 +219,17 @@ Do not bypass the check. Inspect CLIProxyAPI's two model catalog responses and c
 ### Native council preflight disagrees with the profile
 
 Re-run `cliproxy-models` setup with the same exact explicit alias, then fully restart Codex and rerun preflight.
+
+### Native council preflight cannot locate the model authority
+
+The exact `cliproxy-models` version pinned by `codex-moa/authority.json` is missing, malformed, or incompatible. Repair the marketplace installation:
+
+```bash
+codex plugin marketplace upgrade cliproxy
+codex plugin add cliproxy-models@cliproxy
+```
+
+Confirm both required versions are enabled. Preflight deliberately refuses to select another cached version, even when a newer directory exists. Do not copy authority scripts between cache versions and do not point the checkpoint MCP server at model or account data.
 
 ### Checkpoint server is unavailable
 
