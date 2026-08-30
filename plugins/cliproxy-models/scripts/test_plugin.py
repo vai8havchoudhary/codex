@@ -72,7 +72,11 @@ class DispatchTests(unittest.TestCase):
         self.assertEqual(fake.args[-2:], ["--profiles-only", "--dry-run"])
 
     def test_setup_and_use_select_requested_default(self) -> None:
-        for argv, expected in ((["setup"], "grok"), (["setup", "gemini"], "gemini"), (["use", "grok"], "grok")):
+        for argv, expected in (
+            (["setup"], "grok"),
+            (["setup", "gemini"], "gemini"),
+            (["use", "grok"], "grok"),
+        ):
             fake = FakeInstaller()
             original = plugin.load_installer
             plugin.load_installer = lambda: fake

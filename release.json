@@ -2,7 +2,7 @@
   "name": "cliproxy-plugins",
   "version": "2.0.0",
   "plugins": {
-    "cliproxy-models": "1.0.0",
+    "cliproxy-models": "1.1.0",
     "codex-moa": "2.0.0"
   }
 }
