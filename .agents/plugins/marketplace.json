@@ -1,7 +1,7 @@
 {
   "name": "cliproxy",
   "interface": {
-    "displayName": "CLIProxyAPI Models & Agents"
+    "displayName": "CLIProxyAPI Native Models & Councils"
   },
   "plugins": [
     {
@@ -20,10 +20,10 @@
       "category": "Developer Tools"
     },
     {
-      "name": "hermes-moa",
+      "name": "codex-moa",
       "source": {
         "source": "local",
-        "path": "./plugins/hermes-moa"
+        "path": "./plugins/codex-moa"
       },
       "policy": {
         "installation": "AVAILABLE",

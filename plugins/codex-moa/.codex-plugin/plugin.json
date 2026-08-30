@@ -1,0 +1,47 @@
+{
+  "name": "codex-moa",
+  "version": "2.0.0",
+  "description": "Native Codex model-diverse councils and durable checkpoints for long-horizon coding tasks.",
+  "author": {
+    "name": "Vaibhav Choudhary",
+    "url": "https://github.com/vai8havchoudhary"
+  },
+  "homepage": "https://github.com/vai8havchoudhary/codex/tree/main/plugins/codex-moa",
+  "repository": "https://github.com/vai8havchoudhary/codex",
+  "license": "MIT",
+  "keywords": [
+    "codex",
+    "mixture-of-agents",
+    "multi-agent",
+    "long-horizon",
+    "coding-agent",
+    "cliproxyapi",
+    "grok",
+    "gemini"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Codex MoA",
+    "shortDescription": "Native long-horizon coding councils",
+    "longDescription": "Coordinate Grok 4.6 and Gemini 3.7 Flash through Codex's native subagents, bounded councils, single-writer execution, validation-led recovery, independent review, and durable checkpoint handles. CLIProxyAPI remains the sole authority for upstream accounts and credentials.",
+    "developerName": "Vaibhav Choudhary",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/vai8havchoudhary/codex/tree/main/plugins/codex-moa",
+    "privacyPolicyURL": "https://github.com/vai8havchoudhary/codex/blob/main/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/vai8havchoudhary/codex/blob/main/TERMS.md",
+    "defaultPrompt": [
+      "Run a Grok-led native coding council",
+      "Run a Gemini-led native coding council",
+      "Resume a coding council checkpoint"
+    ],
+    "brandColor": "#0F766E",
+    "brandColorDark": "#5EEAD4",
+    "composerIcon": "./assets/composer-icon.svg"
+  }
+}

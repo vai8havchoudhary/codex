@@ -1,74 +1,83 @@
-# Releasing
+# Releasing the CLIProxyAPI native Codex marketplace
 
-This document defines the release transaction for the complete `cliproxy` marketplace.
+`release.json` is authoritative for the marketplace bundle version and every plugin manifest version.
 
-## Version authority
-
-`release.json` is authoritative for the marketplace bundle:
+## Current release contract
 
 ```json
 {
   "name": "cliproxy-plugins",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "plugins": {
     "cliproxy-models": "1.0.0",
-    "hermes-moa": "1.0.0"
+    "codex-moa": "2.0.0"
   }
 }
 ```
 
-Every mapped version must equal `plugins/<name>/.codex-plugin/plugin.json`, and the mapped names must exactly equal marketplace entries. The release tag is `v<release.json version>`. `CHANGELOG.md` must contain a dated section for that marketplace version.
+The release tag must be exactly `v<release.version>`. `CHANGELOG.md` must contain a dated section for that version.
 
 ## Pre-release checklist
 
-1. Confirm exact `main` is intended and its `validate` workflow is green.
-2. Confirm no key, account data, Codex/Hermes config, backup, cache, log, or generated archive is tracked.
-3. Review `README.md`, `SETUP.md`, `SECURITY.md`, `PRIVACY.md`, and `TERMS.md`.
-4. Confirm marketplace, `release.json`, directories, manifests, and skills agree on plugin names.
-5. Confirm each manifest version equals its `release.json` mapping.
-6. Confirm `CHANGELOG.md` has a dated section for the marketplace version.
-7. Run all commands under **Development validation** in `README.md`.
-8. Run live Codex/Hermes/CLIProxyAPI smoke tests when available and record unavailable gates honestly.
+1. Confirm the exact intended `main` commit and tree.
+2. Confirm merged-main validation is green on that SHA.
+3. Confirm `.bootstrap/`, `materialize-native-moa.yml`, and `plugins/hermes-moa` are absent.
+4. Confirm marketplace entries equal the keys in `release.json`.
+5. Confirm every mapped version equals its plugin manifest.
+6. Confirm both plugin docs reflect current live alias behavior.
+7. Run the full validation block in `README.md`.
+8. Run an exact-main live installation and CLIProxyAPI/Codex smoke gate when available.
+9. Record unavailable live gates honestly.
+
+Do not publish before the exact-main live gate when release adjudication requires it.
 
 ## Publication path A: annotated tag
 
 From exact current `main`:
 
 ```bash
-VERSION="$(python3 -c 'import json; print(json.load(open("release.json"))["version"])')"
 git fetch origin
 git switch main
 git pull --ff-only
-git tag -a "v${VERSION}" -m "CLIProxyAPI Plugins v${VERSION}"
-git push origin "v${VERSION}"
+git tag -a v2.0.0 -m "CLIProxyAPI Plugins v2.0.0"
+git push origin v2.0.0
 ```
+
+The workflow refuses a tag that does not match `release.json` or does not pass validation.
 
 ## Publication path B: guarded promotion branch
 
-For an authorized connector that cannot create tag refs directly, create `release/v<version>` from exact current `main`:
+For an authorized connector that cannot directly create tag refs, create exactly:
 
-```bash
-VERSION="$(python3 -c 'import json; print(json.load(open("release.json"))["version"])')"
-git fetch origin
-git branch -f "release/v${VERSION}" origin/main
-git push origin "release/v${VERSION}"
+```text
+release/v2.0.0
 ```
 
-The workflow requires the promotion branch commit to equal current `main`, reruns all gates, creates or verifies the annotated tag, packages the marketplace, and creates/updates the release. Never add commits directly to a promotion branch.
+at exact current `main`. The workflow requires the branch SHA to equal `origin/main`, reruns all gates, creates or verifies the annotated tag, builds the archive, and publishes the release.
 
-## Release output
+Do not add commits to a promotion branch. If `main` changes, delete/recreate the branch from the newly adjudicated commit.
 
-The archive is named `<release.name>-<release.version>.zip` and includes the marketplace manifest, all plugin directories, `release.json`, setup/security/legal docs, and changelog. A SHA-256 sidecar is published with it.
+## Release archive
 
-The workflow fails closed on mismatched refs, stale promotion branches, conflicting tags, release/plugin/marketplace version drift, missing changelog sections, test failures, or missing assets.
+The workflow packages tracked source directly:
+
+```text
+.agents/plugins/marketplace.json
+plugins/
+release.json
+README.md
+SETUP.md
+CHANGELOG.md
+LICENSE
+PRIVACY.md
+SECURITY.md
+TERMS.md
+```
+
+It must include `cliproxy-models` and `codex-moa`. Bootstrap archives, Hermes sources, materialization workflows, local configuration, keys, checkpoints, backups, caches, and build output must remain absent.
 
 ## Post-release verification
 
-```bash
-codex plugin marketplace upgrade cliproxy
-codex plugin list --marketplace cliproxy --available --json
-```
+Verify tag target, release assets, checksum, archive contents, marketplace installation, exact model preflight, native checkpoint MCP discovery, and one bounded council smoke task.
 
-Verify both plugin names and versions, install them in a clean Codex home, run each status flow, and inspect the release ZIP/checksum for secret or config leakage.
-
-Do not move a published tag. Fix defects on `main`, bump the appropriate plugin version(s) plus the marketplace patch version, update the changelog and `release.json`, then publish a new tag or promotion branch.
+Do not move a published tag. Fix forward with a new patch version.

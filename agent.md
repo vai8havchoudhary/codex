@@ -1,120 +1,113 @@
-# Agent handbook
+# Architecture and maintainer handbook
 
-This document is the implementation and release handbook for agents working on the `cliproxy` Codex marketplace.
+## Product boundary
 
-## Mission
+The marketplace exposes one model-setup plugin and one native long-horizon coordination plugin.
 
-Expose exact CLIProxyAPI-backed Grok 4.6 and Gemini 3.7 Flash routes in two places without moving account authority out of CLIProxyAPI:
+### `cliproxy-models`
 
-- `cliproxy-models`: Codex model profiles;
-- `hermes-moa`: Hermes Agent Mixture-of-Agents presets.
+This is the sole model-admission and Codex-provider configuration authority. It:
 
-The repository is a standalone marketplace rooted at `.agents/plugins/marketplace.json` and `plugins/`. It must not accumulate Codex core patches or a second MoA runtime.
+- reads both CLIProxyAPI model catalog views;
+- admits exact Grok 4.6 and Gemini 3.7 Flash aliases only when the same ID appears in both;
+- refuses ambiguity and nearby versions;
+- writes one provider and two stable Codex profiles;
+- persists only `env_key = "CLIPROXY_API_KEY"`;
+- preserves unrelated TOML and writes atomically.
 
-## Authority boundaries
+It does not inspect proxy account files or choose account-routing policy.
 
-### CLIProxyAPI owns
+### `codex-moa`
 
-- upstream accounts and OAuth/session credentials;
-- account selection and load balancing;
-- quota, health, retry, and failover policy;
-- stable model aliases and the `/v1/models` catalogs.
+This plugin is a native Codex coordination policy. It uses Codex's own agent tree, model overrides, messaging, bounded history forks, skills, commands, and agent definitions. It contains no external model loop.
 
-### `cliproxy-models` owns
+The root thread is the coordinator and default single writer. Other models are consulted at high-leverage boundaries:
 
-- endpoint/catalog/exact-alias admission;
-- one Codex provider plus two profiles;
-- transactional `~/.codex/config.toml` changes;
-- status, setup, and model switching.
+1. localization;
+2. plan criticism;
+3. recovery after concrete validation failure;
+4. independent final review.
 
-### `hermes-moa` owns
+The policy intentionally avoids permanent multi-model debate. One accepted plan and one acting patch trajectory preserve coherence.
 
-- Hermes executable/profile discovery;
-- one Hermes provider named `cliproxy`;
-- two built-in-MoA preset objects;
-- transactional Hermes config changes through `hermes config set`;
-- status, tuning, setup, activation, rollback, and post-validation.
+## Live alias contract
 
-### No plugin owns
+VPS2 evidence on 2026-08-30 shows:
 
-- account discovery or account-specific routes;
-- upstream secret material;
-- CLIProxyAPI mutation;
-- speculative fallback to nearby models;
-- an independent multi-agent execution engine.
-
-## Runtime contract
-
-```bash
-export CLIPROXY_URL=http://127.0.0.1:8317
-export CLIPROXY_API_KEY="$(<"$HOME/.cli-proxy-api/.proxy-api-key")"
+```text
+grok-4.6
+gemini-3.7-flash-high
+gemini-3.7-flash-advisor
 ```
 
-Rules:
+No bare `gemini-3.7-flash` exists. Both qualified Gemini aliases match the requested family/version/marker, so automatic resolution must raise an ambiguity error. Explicit `--gemini-model gemini-3.7-flash-high` is valid only if that exact ID is in both catalog views and the configured Codex profile matches it.
 
-- Check key presence; never echo its value.
-- Plain HTTP is loopback-only; remote endpoints require HTTPS.
-- Normalize exactly one `/v1` suffix.
-- Query `GET /v1/models` and `GET /v1/models?client_version=...`.
-- Admit the same exact model ID only when it appears in both catalogs.
-- Fail closed on absent, ambiguous, marker-less, or nearby versions.
+Do not encode a preference between `-high` and `-advisor` in discovery logic.
 
-## Hermes MoA design
+## Native council lifecycle
 
-Hermes' built-in `moa` provider treats each preset as a selectable model. References run first and advise; the aggregator is the acting model that writes the final answer and performs tool calls.
+```text
+preflight -> localize -> plan -> implement -> validate -> review -> complete
+                                      |           |
+                                      +-> recover-+
+```
 
-Owned route topology:
+- **Preflight:** verify repository/task authority and exact model admission.
+- **Localize:** bounded read-only explorers answer distinct repository questions.
+- **Plan:** one writer synthesizes a dependency-aware plan; the opposite model challenges it.
+- **Implement:** one writer owns the patch surface unless explicit disjoint ownership is necessary.
+- **Validate:** repository-native commands and tests are authoritative.
+- **Recover:** open only after concrete failure or invalidated evidence; at most two coherent repair rounds.
+- **Review:** an opposite-model read-only verifier reviews the actual diff and gate evidence.
+- **Complete/blocked:** record the exact terminal state in an immutable checkpoint.
 
-| Preset | Reference | Aggregator |
-|---|---|---|
-| `cliproxy-grok-led` | exact Gemini 3.7 Flash | exact Grok 4.6 |
-| `cliproxy-gemini-led` | exact Grok 4.6 | exact Gemini 3.7 Flash |
+## Checkpoint MCP boundary
 
-Defaults:
+`plugins/codex-moa/mcp/server.py` is a state store, not an orchestrator.
 
-- `reference_max_tokens: 600`;
-- `max_tokens: 4096`;
-- `fanout: user_turn`;
-- `privacy_filter: display` unless an existing `full` policy is stronger;
-- `enabled: true`.
+Allowed tools:
 
-The plugin writes structured provider/preset objects through Hermes' own config CLI. It merges unrelated object fields, recognizes its routes by provider custody, refuses foreign collisions unless `--force`, skips equal values, validates exact post-write values, and restores exact original bytes on failure.
+- `checkpoint_validate`
+- `checkpoint_put`
+- `checkpoint_get`
+- `checkpoint_list`
 
-## Repository map
+Records contain objectives, decisions, evidence, changed paths, validation state, risks, retry budget, and next action. They exclude source-file bodies, conversations, credentials, tokens, cookies, account data, and environment dumps.
 
-| Path | Responsibility |
-|---|---|
-| `.agents/plugins/marketplace.json` | Marketplace entries and policies |
-| `release.json` | Marketplace version and exact plugin-version map |
-| `plugins/cliproxy-models/` | Codex model provider/profile plugin |
-| `plugins/hermes-moa/` | Hermes built-in-MoA configuration plugin |
-| `plugins/*/.codex-plugin/plugin.json` | Plugin version and UI metadata |
-| `plugins/*/skills/` | Model-facing operating procedures |
-| `plugins/*/scripts/` | Standard-library implementation and tests |
-| `SETUP.md` | User operations |
-| `docs/RELEASING.md` | Release transaction |
-| `tests/` | Marketplace and release contracts |
+Storage properties:
 
-## Mutation requirements
+- under `${CODEX_HOME:-~/.codex}/codex-moa/checkpoints`;
+- directory mode `0700`;
+- record mode `0600`;
+- immutable opaque handles;
+- canonical SHA-256 digest;
+- atomic replace and directory sync;
+- equal writes return the existing handle;
+- symlink paths are refused;
+- previous links must exist and retain `run_id` continuity.
 
-Every write path must:
+The MCP process receives only `CODEX_HOME`. Never add `CLIPROXY_API_KEY` or account-directory variables to `.mcp.json`.
 
-1. validate endpoint, environment, catalogs, and exact aliases first;
-2. detect foreign ownership before mutation;
-3. snapshot exact original bytes;
-4. use the target application's supported config surface;
-5. suppress/redact secret values in subprocess output;
-6. post-validate requested values;
-7. roll back exact bytes or remove a new partial file on failure;
-8. write a mode-`0600` timestamped backup only after a successful changed transaction;
-9. perform no write when already equal.
+## Research-to-policy mapping
 
-## Validation
+The detailed references live in `plugins/codex-moa/references/long-horizon-research.md`.
 
-Run the root test suite, every plugin script suite, Python compilation, JSON validation, and `git diff --check`. The Hermes suite uses a synthetic CLIProxy catalog and a fake Hermes executable; it proves real subprocess boundaries and exact rollback without needing user credentials.
+- SWE-agent and Agentless support deliberate repository interfaces, localization, and direct validation feedback.
+- CodePlan and MASAI support dependency-aware plans and bounded specialist roles.
+- Mixture-of-Agents supports model-diverse independent proposals, adapted here to high-leverage gates rather than every step.
+- Reflexion supports evidence-driven repair with compact external memory.
 
-A live Hermes/CLIProxyAPI smoke gate is valuable but must be reported as unavailable when it was not executed.
+These sources inform policy; none is copied as a competing runtime.
 
-## Release discipline
+## Release authority
 
-`release.json` is authoritative for the marketplace tag. Each mapped version must equal the corresponding plugin manifest. `CHANGELOG.md` must contain a dated marketplace version section. Release only from exact green `main`, using either an annotated `v<version>` tag or guarded `release/v<version>` branch. See `docs/RELEASING.md`.
+`release.json` must map every marketplace plugin to the exact manifest version. The release workflow accepts only:
+
+- annotated `v<release.version>` tags; or
+- exact-current-main `release/v<release.version>` promotion branches.
+
+It reruns all tests and packages the tracked source tree directly. Bootstrap archives, materialization workflows, generated source commits, and mutable release tags are forbidden.
+
+## Failure policy
+
+Fail closed when exact aliases are unresolved, repository authority changed, writer ownership overlaps, required destructive work is unauthorized, a checkpoint path is unsafe, or the repair budget is exhausted. Record the exact blocker; never convert missing evidence into a success claim.

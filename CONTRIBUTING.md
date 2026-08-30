@@ -1,32 +1,43 @@
 # Contributing
 
-Contributions must preserve the authority and secret-custody boundaries in [AGENTS.md](AGENTS.md) and [agent.md](agent.md).
+Changes must preserve the authority boundaries in `AGENTS.md` and `agent.md`.
 
-## Development
+## Development process
 
-Use Python 3.11 or newer and only the standard library in plugin runtime code. Keep synthetic test keys obviously fake and confined to `test_*.py` files.
+1. Branch from current `main`.
+2. Inspect both plugin manifests, `release.json`, relevant source, and tests.
+3. Keep model admission in `cliproxy-models`; keep long-horizon coordination in native Codex skills/agents/MCP state custody.
+4. Add deterministic regression tests before changing a security, alias, checkpoint, or release contract.
+5. Update README, setup, agent, security, and changelog documentation when user behavior changes.
+6. Run the complete validation block in `README.md`.
+7. Open a pull request with exact test counts and honest unavailable live gates.
+8. Merge only after the exact PR head and merged-main checks are green.
 
-Run:
+## Prohibited changes
 
-```bash
-python3 -m unittest discover -s tests -p 'test_*.py' -v
-for suite in plugins/*/scripts; do
-  python3 -m unittest discover -s "$suite" -p 'test_*.py' -v
-done
-python3 -m compileall -q plugins tests
-python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
-for manifest in plugins/*/.codex-plugin/plugin.json; do
-  python3 -m json.tool "$manifest" >/dev/null
-done
-git diff --check
-```
+- account-specific Codex providers;
+- persisted proxy key values or account metadata;
+- silent selection between ambiguous Gemini aliases;
+- Hermes Agent dependencies;
+- a custom model loop or scheduler inside `codex-moa`;
+- checkpoint tools that execute commands or call models;
+- bootstrap/base64 source delivery or materialization workflows;
+- release tags from unvalidated or non-main commits.
 
-## Pull requests
+## Tests
 
-A pull request should contain one coherent capability, update affected documentation, add regression coverage, and state which live product gates were or were not run. Never include CLIProxyAPI account data, real keys, application config, logs, backups, caches, or release archives.
+At minimum, cover:
 
-For a new plugin, add the directory, manifest, skill, commands, tests, marketplace entry, `release.json` mapping, setup docs, changelog entry, validation workflow coverage, and release packaging coverage together.
+- both CLIProxyAPI catalog shapes;
+- exact alias intersection and ambiguity;
+- explicit alias presence in both catalogs;
+- provider/profile consistency;
+- plugin/marketplace/release layout;
+- MCP protocol and storage permissions;
+- checkpoint validation, idempotence, chaining, secret refusal, and symlink refusal;
+- absence of Hermes/bootstrap/materialization paths;
+- release workflow guards and public archive contents.
 
-## Versioning
+## Live model regression contract
 
-Plugin manifests version each plugin. `release.json` versions the marketplace bundle and maps every plugin to its exact manifest version. Follow [docs/RELEASING.md](docs/RELEASING.md) for publication.
+Keep regression coverage for `grok-4.6`, `gemini-3.7-flash-high`, and `gemini-3.7-flash-advisor`. Automatic Gemini resolution must refuse the two-candidate catalog; explicit exact selection must still require the same ID in both catalogs. Never log or persist `CLIPROXY_API_KEY`.

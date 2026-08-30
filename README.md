@@ -1,116 +1,132 @@
-# CLIProxyAPI Plugins for Codex
+# CLIProxyAPI native plugins for Codex
 
 [![validate](https://github.com/vai8havchoudhary/codex/actions/workflows/validate.yml/badge.svg)](https://github.com/vai8havchoudhary/codex/actions/workflows/validate.yml)
 
-A standalone Codex plugin marketplace for using a multi-account CLIProxyAPI model pool in Codex and Hermes Agent.
+A native Codex plugin marketplace for using multiple CLIProxyAPI-backed models safely in Codex Desktop and for coordinating long-horizon coding work through Codex's own subagent runtime.
+
+The marketplace contains exactly two plugins:
 
 | Plugin | Purpose |
 |---|---|
-| `cliproxy-models` | Add exact Grok 4.6 and Gemini 3.7 Flash profiles to Codex Desktop. |
-| `hermes-moa` | Configure Hermes Agent Mixture-of-Agents presets where Grok and Gemini advise/act together. |
+| `cliproxy-models` | Admit exact Grok 4.6 and Gemini 3.7 Flash aliases and install one shared CLIProxyAPI provider plus two Codex profiles. |
+| `codex-moa` | Run bounded, model-diverse long-horizon coding councils using native Codex agents, skills, commands, and an immutable checkpoint MCP server. |
 
-CLIProxyAPI remains authoritative for all upstream accounts, OAuth sessions, quota balancing, health checks, retries, and failover. Neither plugin copies upstream account identifiers or API-key values into application configuration.
+Neither plugin requires Hermes Agent. There is no alternate orchestration runtime. CLIProxyAPI remains the sole authority for upstream accounts, OAuth sessions, credentials, quotas, retries, health checks, and failover.
 
-Current marketplace release: **1.1.0**. See [CHANGELOG.md](CHANGELOG.md).
+Current marketplace release line: **2.0.x**.
 
-## Quick start
+## Environment
 
-Prerequisites:
-
-- Codex with the `codex plugin` marketplace commands.
-- Python 3.11 or newer.
-- CLIProxyAPI exporting exact Grok 4.6 and Gemini 3.7 Flash aliases.
-- Hermes Agent only when installing `hermes-moa`.
-
-Export the proxy contract in every environment that launches Codex or Hermes:
+Export the local proxy contract in the environment that launches Codex:
 
 ```bash
 export CLIPROXY_URL=http://127.0.0.1:8317
 export CLIPROXY_API_KEY="$(<"$HOME/.cli-proxy-api/.proxy-api-key")"
 ```
 
-Add the marketplace:
+The plugins never enumerate proxy account files and never print or persist the key value. Codex configuration stores only the environment-variable name `CLIPROXY_API_KEY`.
+
+## Install
 
 ```bash
 codex plugin marketplace add vai8havchoudhary/codex --ref main
-```
-
-Install either or both plugins:
-
-```bash
 codex plugin add cliproxy-models@cliproxy
-codex plugin add hermes-moa@cliproxy
+codex plugin add codex-moa@cliproxy
 ```
 
-### Codex models
+Set up the model profiles first:
 
 ```text
-@cliproxy-models Set up CLIProxyAPI models and use Grok 4.6 by default.
+@cliproxy-models Set up CLIProxyAPI models.
 ```
 
-Profiles created:
+Then run a native council:
 
 ```text
-cliproxy-grok-4-6
-cliproxy-gemini-3-7-flash
+@codex-moa Run this repository task with a Grok-led native council.
 ```
 
-### Hermes Mixture of Agents
+or:
 
 ```text
-@hermes-moa Set up Hermes MoA with Grok leading.
+@codex-moa Run this repository task with a Gemini-led native council.
 ```
 
-Presets created:
+Fully quit and reopen Codex Desktop after marketplace or provider changes.
+
+## VPS2 Gemini ambiguity
+
+The authoritative VPS2 catalog currently demonstrates this shape:
 
 ```text
-cliproxy-grok-led     # Gemini advises; Grok acts
-cliproxy-gemini-led   # Grok advises; Gemini acts
+grok-4.6
+gemini-3.7-flash-high
+gemini-3.7-flash-advisor
 ```
 
-Inside Hermes, select a persistent preset or use the configured default for one request:
+There is no bare `gemini-3.7-flash`. Automatic setup must refuse because two exact Gemini 3.7 Flash aliases are present. Select one exact alias explicitly, for example:
 
 ```text
-/model cliproxy-grok-led --provider moa
-/moa Review this change and propose the safest implementation.
+@cliproxy-models Set up with --gemini-model gemini-3.7-flash-high.
 ```
 
-## Shared safety properties
+The explicit alias is accepted only when it appears in both CLIProxyAPI catalog views. The plugin never infers account policy from alias names.
 
-- Exact-version admission only; nearby, marker-less, absent, or ambiguous aliases are refused.
-- An alias must appear in both CLIProxyAPI's OpenAI-compatible and Codex-compatible catalogs.
-- Exactly one provider is configured per application; upstream accounts remain behind CLIProxyAPI.
-- Plain HTTP is accepted only for localhost and loopback endpoints; remote endpoints require HTTPS.
-- `CLIPROXY_API_KEY` values are never printed or persisted. Only the environment-variable name is stored.
-- Existing foreign provider/profile/preset definitions are not overwritten without explicit `--force` authorization.
-- Application config mutations are backed up, post-validated, byte-idempotent, and rolled back on partial failure.
-- No plugin enumerates or modifies CLIProxyAPI account files.
+## Long-horizon policy
+
+`codex-moa` uses:
+
+- repository localization before editing;
+- one accepted dependency-aware plan;
+- one acting writer by default;
+- opposite-model criticism and review at high-leverage gates;
+- repository-native validation as the source of truth;
+- bounded failure recovery and explicit stop conditions;
+- compact immutable checkpoints addressed by opaque handles;
+- fresh repository reconciliation when resuming.
+
+See [`plugins/codex-moa/skills/codex-moa/SKILL.md`](plugins/codex-moa/skills/codex-moa/SKILL.md) and [`plugins/codex-moa/references/long-horizon-research.md`](plugins/codex-moa/references/long-horizon-research.md).
+
+## Safety properties
+
+- Exact-version admission in both CLIProxyAPI catalogs.
+- Ambiguous, nearby, malformed, or marker-less aliases are refused.
+- Plain HTTP is accepted only for loopback endpoints; remote endpoints require HTTPS.
+- Exactly one Codex provider fronts all proxy-managed accounts.
+- No API-key value or account metadata is persisted.
+- Codex configuration writes are atomic, mode `0600`, backed up, post-validated, and byte-idempotent.
+- MoA checkpoints reject sensitive fields and common secret-value patterns.
+- The checkpoint server receives only `CODEX_HOME`; it cannot route models or execute code.
+- Councils use native Codex subagents and bounded repair budgets.
 
 ## Documentation
 
-- [SETUP.md](SETUP.md) — installation, verification, tuning, upgrades, rollback, and troubleshooting.
-- [agent.md](agent.md) — architecture and operating handbook for implementation agents.
-- [AGENTS.md](AGENTS.md) — mandatory repository instructions consumed by Codex.
-- [CONTRIBUTING.md](CONTRIBUTING.md) — contribution and validation workflow.
-- [SECURITY.md](SECURITY.md) — security model and vulnerability reporting.
-- [docs/RELEASING.md](docs/RELEASING.md) — marketplace versioning, tagging, and release checklist.
-- [CHANGELOG.md](CHANGELOG.md) — user-visible changes by marketplace version.
+- [SETUP.md](SETUP.md) — installation, exact alias selection, verification, upgrade, rollback, and uninstall.
+- [AGENTS.md](AGENTS.md) — mandatory repository invariants for Codex.
+- [agent.md](agent.md) — architecture and maintainer handbook.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — development and pull-request contract.
+- [SECURITY.md](SECURITY.md) — security model and reporting.
+- [docs/RELEASING.md](docs/RELEASING.md) — guarded release process.
+- [CHANGELOG.md](CHANGELOG.md) — versioned user-visible changes.
 
 ## Development validation
 
 ```bash
 python3 -m unittest discover -s tests -p 'test_*.py' -v
-for suite in plugins/*/scripts; do
-  python3 -m unittest discover -s "$suite" -p 'test_*.py' -v
+for suite in plugins/*/scripts plugins/*/tests; do
+  if compgen -G "$suite/test_*.py" >/dev/null; then
+    python3 -m unittest discover -s "$suite" -p 'test_*.py' -v
+  fi
 done
 python3 -m compileall -q plugins tests
 python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
+python3 -m json.tool release.json >/dev/null
 for manifest in plugins/*/.codex-plugin/plugin.json; do
   python3 -m json.tool "$manifest" >/dev/null
 done
+for mcp in plugins/*/.mcp.json; do
+  [ -e "$mcp" ] || continue
+  python3 -m json.tool "$mcp" >/dev/null
+done
 git diff --check
 ```
-
-## Repository history
-
-The previous Codex source-fork tree remains recoverable through Git history and `archive/codex-upstream-20260828`. Current `main` is exclusively the `cliproxy` plugin marketplace.

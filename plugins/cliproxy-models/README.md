@@ -20,3 +20,17 @@ See the repository guides:
 - [Security policy](../../SECURITY.md)
 - [Agent handbook](../../agent.md)
 - [Release procedure](../../docs/RELEASING.md)
+
+## Current VPS2 alias ambiguity
+
+A live VPS2 catalog may expose `grok-4.6` plus both `gemini-3.7-flash-high` and `gemini-3.7-flash-advisor`, with no bare `gemini-3.7-flash`. Automatic setup intentionally refuses that catalog because selecting either Gemini route would be policy, not discovery.
+
+Choose one exact alias explicitly only after deciding which route you intend:
+
+```bash
+python3 scripts/plugin.py \
+  --gemini-model gemini-3.7-flash-high \
+  setup grok
+```
+
+The explicit alias must still be present in both the OpenAI-compatible and Codex-compatible CLIProxyAPI catalogs. No account file or key value is inspected.
