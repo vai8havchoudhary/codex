@@ -54,6 +54,19 @@ or:
 
 Fully quit and reopen Codex Desktop after marketplace or provider changes.
 
+## Packaged dependency contract
+
+`codex-moa` does not copy or reimplement model admission. Its packaged `authority.json` pins the compatible `cliproxy-models` version and aligns with `release.json`.
+
+The preflight supports both:
+
+```text
+<repo>/plugins/codex-moa + <repo>/plugins/cliproxy-models
+<cache>/cliproxy/codex-moa/2.0.0 + <cache>/cliproxy/cliproxy-models/1.0.0
+```
+
+Source use requires the repository release contract to match. Installed use selects only the exact pinned version; it never guesses a latest cached version. No user home path is hardcoded.
+
 ## VPS2 Gemini ambiguity
 
 The authoritative VPS2 catalog currently demonstrates this shape:
@@ -95,13 +108,14 @@ See [`plugins/codex-moa/skills/codex-moa/SKILL.md`](plugins/codex-moa/skills/cod
 - Exactly one Codex provider fronts all proxy-managed accounts.
 - No API-key value or account metadata is persisted.
 - Codex configuration writes are atomic, mode `0600`, backed up, post-validated, and byte-idempotent.
+- `codex-moa` binds to the exact release-compatible `cliproxy-models` authority in source and versioned cache layouts.
 - MoA checkpoints reject sensitive fields and common secret-value patterns.
 - The checkpoint server receives only `CODEX_HOME`; it cannot route models or execute code.
 - Councils use native Codex subagents and bounded repair budgets.
 
 ## Documentation
 
-- [SETUP.md](SETUP.md) — installation, exact alias selection, verification, upgrade, rollback, and uninstall.
+- [SETUP.md](SETUP.md) — installation, exact alias selection, authority-location troubleshooting, verification, upgrade, rollback, and uninstall.
 - [AGENTS.md](AGENTS.md) — mandatory repository invariants for Codex.
 - [agent.md](agent.md) — architecture and maintainer handbook.
 - [CONTRIBUTING.md](CONTRIBUTING.md) — development and pull-request contract.
@@ -123,6 +137,10 @@ python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
 python3 -m json.tool release.json >/dev/null
 for manifest in plugins/*/.codex-plugin/plugin.json; do
   python3 -m json.tool "$manifest" >/dev/null
+done
+for contract in plugins/*/authority.json; do
+  [ -e "$contract" ] || continue
+  python3 -m json.tool "$contract" >/dev/null
 done
 for mcp in plugins/*/.mcp.json; do
   [ -e "$mcp" ] || continue

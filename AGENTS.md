@@ -9,13 +9,16 @@ Read [agent.md](agent.md) before non-trivial changes.
 
 ## Non-negotiable invariants
 
-- Keep marketplace, directory, manifest, skill, and release names aligned.
+- Keep marketplace, directory, manifest, skill, dependency-contract, and release names aligned.
 - `release.json` is the marketplace bundle version authority.
+- `plugins/codex-moa/authority.json` must pin the exact compatible marketplace, bundle, consumer, and `cliproxy-models` version; it must align with `release.json` and both manifests.
 - Maintain exactly one Codex provider for CLIProxyAPI. Never create providers per upstream account.
 - Never read, enumerate, print, summarize, or persist proxy account files or the value of `CLIPROXY_API_KEY`.
 - Store only the environment-variable name `CLIPROXY_API_KEY` in Codex configuration.
 - Require exact Grok 4.6 and Gemini 3.7 Flash aliases in both CLIProxyAPI catalogs.
 - Current VPS2 evidence includes `grok-4.6`, `gemini-3.7-flash-high`, and `gemini-3.7-flash-advisor`, with no bare Gemini alias. Automatic selection must refuse the ambiguity; an explicit exact common alias may be admitted.
+- Support both the release-bound source layout and Codex's versioned plugin-cache layout without hardcoding a user home path.
+- Never select an arbitrary, latest, or first cached `cliproxy-models` version. Use only the exact version pinned by `authority.json`; missing or incompatible authorities fail closed.
 - Keep `codex-moa` native to Codex subagents, model overrides, skills, commands, agent definitions, and its checkpoint MCP server.
 - Do not add Hermes Agent, another scheduler, a second model gateway, or a parallel orchestration runtime.
 - The checkpoint MCP server may store compact immutable state only. It must not execute code, call models, receive the proxy key, or route accounts.
@@ -25,10 +28,10 @@ Read [agent.md](agent.md) before non-trivial changes.
 
 ## Change workflow
 
-1. Inspect marketplace/release authority, both plugin manifests, relevant skills/commands/agents, MCP config/server, and tests.
+1. Inspect marketplace/release authority, `authority.json`, both plugin manifests, relevant skills/commands/agents, MCP config/server, and tests.
 2. Make one coherent change without duplicating model admission or orchestration authority.
 3. Update tests and user docs for changed behavior or live alias evidence.
-4. Align manifest versions, `release.json`, and `CHANGELOG.md` for release changes.
+4. Align manifest versions, `release.json`, `authority.json`, and `CHANGELOG.md` for release changes.
 5. Run every command under **Development validation** in `README.md`.
 6. Reread the exact diff and GitHub checks before merge.
 7. For publication, follow `docs/RELEASING.md`. Never create or move a release tag during ordinary implementation.

@@ -43,12 +43,16 @@ jobs:
         run: |
           python3 -m json.tool .agents/plugins/marketplace.json >/dev/null
           python3 -m json.tool release.json >/dev/null
-      - name: Validate plugin manifests and MCP configs
+      - name: Validate plugin manifests, authority contracts, and MCP configs
         shell: bash
         run: |
           set -euo pipefail
           for manifest in plugins/*/.codex-plugin/plugin.json; do
             python3 -m json.tool "$manifest" >/dev/null
+          done
+          for contract in plugins/*/authority.json; do
+            [[ -e "$contract" ]] || continue
+            python3 -m json.tool "$contract" >/dev/null
           done
           for mcp in plugins/*/.mcp.json; do
             [[ -e "$mcp" ]] || continue

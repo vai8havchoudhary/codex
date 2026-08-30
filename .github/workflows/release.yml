@@ -26,7 +26,7 @@ jobs:
         with:
           python-version: "3.14"
 
-      - name: Verify release ref, marketplace, and plugin versions
+      - name: Verify release ref, marketplace, plugin, and authority versions
         id: metadata
         shell: bash
         run: |
@@ -75,6 +75,27 @@ jobs:
                       f"manifest version mismatch for {name}: "
                       f"{manifest.get('version')!r} != {expected_version!r}"
                   )
+
+          authority_path = Path("plugins/codex-moa/authority.json")
+          authority = json.loads(authority_path.read_text())
+          consumer = authority.get("consumer")
+          model_authority = authority.get("authority")
+          authority_release = authority.get("release")
+          if (
+              authority.get("schema") != 1
+              or authority.get("marketplace") != marketplace.get("name")
+              or not isinstance(authority_release, dict)
+              or authority_release.get("name") != release.get("name")
+              or authority_release.get("version") != release.get("version")
+              or not isinstance(consumer, dict)
+              or mapped.get(consumer.get("name")) != consumer.get("version")
+              or not isinstance(model_authority, dict)
+              or mapped.get(model_authority.get("name")) != model_authority.get("version")
+              or model_authority.get("scripts") != ["catalog.py", "plugin.py"]
+          ):
+              raise SystemExit(
+                  f"{authority_path} does not match marketplace, release, and manifest authority"
+              )
 
           forbidden = [
               Path(".bootstrap"),
@@ -125,6 +146,10 @@ jobs:
           python3 -m json.tool release.json >/dev/null
           for manifest in plugins/*/.codex-plugin/plugin.json; do
             python3 -m json.tool "$manifest" >/dev/null
+          done
+          for contract in plugins/*/authority.json; do
+            [[ -e "$contract" ]] || continue
+            python3 -m json.tool "$contract" >/dev/null
           done
           for mcp in plugins/*/.mcp.json; do
             [[ -e "$mcp" ]] || continue
