@@ -57,7 +57,7 @@ GET /v1/models
 GET /v1/models?client_version=999.0.0
 ```
 
-## 4. Three-file profile transaction
+## 4. Guarded three-file profile transaction
 
 Setup maintains exactly:
 

@@ -43,7 +43,7 @@ class PluginLayoutTests(unittest.TestCase):
             self.assertTrue((plugin / "commands" / f"{command}.md").is_file(), command)
         source = "\n".join(
             (plugin / "scripts" / name).read_text()
-            for name in ("config_edit.py", "toml_edit.py", "profile_documents.py", "config_transaction.py")
+            for name in ("catalog.py", "config_edit.py", "toml_edit.py", "profile_documents.py", "config_transaction.py")
         )
         for phrase in (
             "PROFILE_BEGIN",

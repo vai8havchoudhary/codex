@@ -85,8 +85,8 @@ class ReleaseReadinessTests(unittest.TestCase):
         ):
             self.assertIn(phrase, writer)
         self.assertIn("render_documents", installer)
-        self.assertIn("profile_path(config, GROK_PROFILE)", preflight)
-        self.assertIn("profile_path(config, GEMINI_PROFILE)", preflight)
+        self.assertIn("_profile_overlay(config, GROK_PROFILE)", preflight)
+        self.assertIn("_profile_overlay(config, GEMINI_PROFILE)", preflight)
         self.assertIn("legacy `[profiles.*]`", preflight)
         self.assertNotIn("def _profile(parsed", preflight)
 

@@ -14,8 +14,8 @@ Read [agent.md](agent.md) before non-trivial changes.
 - Keep exactly one Codex provider for CLIProxyAPI; never create providers per upstream account.
 - Never read, enumerate, print, summarize, or persist proxy account files or the value of `CLIPROXY_API_KEY`.
 - Persist only the environment-variable name `CLIPROXY_API_KEY`.
-- Exact Grok 4.6 and Gemini 3.7 Flash IDs must appear in both CLIProxyAPI catalogs. The current `-high` / `-advisor` Gemini ambiguity must be refused unless one exact common ID is explicitly selected.
-- `cliproxy-models` owns a guarded three-file Codex configuration transaction: base `config.toml` plus both `<profile>.config.toml` overlays.
+- Exact `grok-4.6` and Gemini 3.7 Flash IDs must appear in both CLIProxyAPI catalogs. The current candidates `gemini-3.7-flash-high` and `gemini-3.7-flash-advisor` are ambiguous and must be refused unless one exact common ID is explicitly selected.
+- `cliproxy-models` owns a guarded three-file Codex configuration transaction: base `config.toml` plus `cliproxy-grok-4-6.config.toml` and `cliproxy-gemini-3-7-flash.config.toml` overlays.
 - Never write managed `[profiles.*]` tables or a managed top-level `profile` selector. Codex 0.134.0+ uses separate profile overlay files.
 - Preserve unrelated TOML/comments only where ownership is unambiguous; unmanaged collisions, malformed TOML/markers, symlinks, non-regular files, or concurrent changes fail closed.
 - Base/profile writes must be one backup-aware, permission-restricted, atomic, post-validated, idempotent transaction with exact rollback.

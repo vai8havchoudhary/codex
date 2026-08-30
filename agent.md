@@ -4,7 +4,7 @@
 
 ### `cliproxy-models` 1.1.0
 
-The sole model-admission and Codex-provider configuration authority. It reads both CLIProxyAPI catalogs, admits exact common IDs, refuses ambiguity, and writes one provider plus two modern profile overlays. It never inspects proxy accounts or chooses routing policy.
+The sole model-admission and Codex-provider configuration authority. It reads both CLIProxyAPI catalogs, admits exact common IDs, refuses ambiguity, and writes one provider plus two modern profile overlays. It persists only the environment-variable name `CLIPROXY_API_KEY`; it never inspects proxy accounts, persists key values, or chooses routing policy.
 
 Managed documents:
 
