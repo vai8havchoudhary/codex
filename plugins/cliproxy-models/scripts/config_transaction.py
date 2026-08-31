@@ -1,4 +1,4 @@
-"""Three-file permission-restricted Codex configuration transactions."""
+"""Permission-restricted coordinated Codex configuration transactions."""
 from __future__ import annotations
 
 import datetime as dt
@@ -183,7 +183,7 @@ def transactional_write(
 
 
 # Backward-compatible single-file helper retained for third-party callers. The
-# installer itself always uses transactional_write for the base and both overlays.
+# installer uses one transaction for the base, five overlays, and model catalog.
 def atomic_write(path: Path, content: str) -> Path | None:
     state = read_state(path, str(path))
     plan = PlannedFile(state, content)

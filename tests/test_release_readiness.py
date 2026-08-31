@@ -50,7 +50,7 @@ class ReleaseReadinessTests(unittest.TestCase):
             ):
                 self.assertIn(phrase, text, relative)
         setup = (ROOT / "SETUP.md").read_text()
-        self.assertIn("three-file", setup)
+        self.assertIn("seven-file", setup)
         self.assertIn("[profiles.*]", setup)
         self.assertIn("--profile cliproxy-grok-4-6", setup)
         self.assertIn("transaction", setup.lower())

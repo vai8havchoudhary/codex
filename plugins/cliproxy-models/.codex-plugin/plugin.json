@@ -1,7 +1,7 @@
 {
   "name": "cliproxy-models",
   "version": "1.1.0",
-  "description": "Configure CLIProxyAPI-backed Grok 4.6 and Gemini 3.7 Flash models using modern Codex profile overlay files.",
+  "description": "Admit exact Luna, Grok and Gemini models through one CLIProxyAPI provider with guarded modern profiles and a derived native council model catalog.",
   "author": {
     "name": "Vaibhav Choudhary",
     "url": "https://github.com/vai8havchoudhary"
@@ -15,13 +15,16 @@
     "grok",
     "gemini",
     "model-provider",
-    "multi-account"
+    "multi-account",
+    "luna",
+    "luna-grok",
+    "grok-gemini"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "CLIProxyAPI Models",
-    "shortDescription": "Add Grok 4.6 and Gemini 3.7 Flash to Codex",
-    "longDescription": "Configure one CLIProxyAPI provider in Codex, validate both live model catalogs, and write modern per-profile overlay files for exact Grok 4.6 and Gemini 3.7 Flash aliases without copying upstream account credentials into Codex.",
+    "shortDescription": "Configure Luna, Grok and Gemini for Codex",
+    "longDescription": "Admit exact Luna, Grok and Gemini models through one CLIProxyAPI provider with guarded modern profiles and a derived native council model catalog. Preserve user-owned configuration, use one atomic seven-file transaction, and never copy upstream account credentials.",
     "developerName": "Vaibhav Choudhary",
     "category": "Developer Tools",
     "capabilities": [
@@ -35,10 +38,9 @@
     "defaultPrompt": [
       "Set up CLIProxyAPI models in Codex",
       "Check my CLIProxyAPI model setup",
-      "Switch Codex to Gemini 3.7 Flash"
+      "Switch Codex to Luna"
     ],
     "brandColor": "#111827",
-    "brandColorDark": "#E5E7EB",
     "composerIcon": "./assets/composer-icon.svg"
   }
 }

@@ -25,6 +25,8 @@ class PreflightTestCase(unittest.TestCase):
         codex_ids: list[str],
     ) -> tuple[Path, Path]:
         root.mkdir(parents=True, exist_ok=True)
+        openai_ids = [*openai_ids, "gpt-5.6-luna"]
+        codex_ids = [*codex_ids, "gpt-5.6-luna"]
         openai = root / "models.json"
         codex = root / "codex-models.json"
         openai.write_text(
@@ -68,6 +70,16 @@ requires_openai_auth = false
             f'model = "{gemini}"\nmodel_provider = "{gemini_provider}"\n',
             encoding="utf-8",
         )
+        catalog, _ = preflight.load_authority()
+        for name, model in (("cliproxy-luna", "gpt-5.6-luna"), ("luna-grok", "gpt-5.6-luna"), ("grok-gemini", "grok-4.6")):
+            text = f'model = "{model}"\nmodel_provider = "{grok_provider}"\n'
+            if name in catalog.COUNCILS:
+                text += f'developer_instructions = {json.dumps(catalog.council_instructions(name))}\n'
+                text += f'model_catalog_json = {json.dumps(str(root.resolve() / catalog.MODEL_CATALOG_FILE))}\n'
+            preflight.profile_path(path, name).write_text(text, encoding="utf-8")
+        (root / catalog.MODEL_CATALOG_FILE).write_text(json.dumps({
+            "_codex_cliproxy_models": 1,
+            "models": [{"slug": model} for model in catalog.CATALOG_MODELS]}))
         return path
 
     def copy_plugin(self, source: Path, destination: Path, version: str | None = None) -> None:

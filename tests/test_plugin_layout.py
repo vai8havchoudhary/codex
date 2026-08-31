@@ -39,7 +39,7 @@ class PluginLayoutTests(unittest.TestCase):
         self.assertTrue(skill.read_text().startswith("---\nname: cliproxy-models\n"))
         for script in ("catalog.py", "config_edit.py", "install.py", "plugin.py"):
             self.assertTrue((plugin / "scripts" / script).is_file(), script)
-        for command in ("setup", "status", "use-grok", "use-gemini"):
+        for command in ("setup", "status", "use-grok", "use-gemini", "use-luna"):
             self.assertTrue((plugin / "commands" / f"{command}.md").is_file(), command)
         source = "\n".join(
             (plugin / "scripts" / name).read_text()
@@ -63,9 +63,18 @@ class PluginLayoutTests(unittest.TestCase):
         self.assertTrue((plugin / "scripts/preflight.py").is_file())
         self.assertTrue((plugin / "scripts/checkpoint_schema.py").is_file())
         self.assertTrue((plugin / "skills/codex-moa/SKILL.md").is_file())
+        for name in ("luna-grok", "grok-gemini"):
+            skill = plugin / "skills" / name / "SKILL.md"
+            self.assertTrue(skill.is_file())
+            self.assertTrue(skill.read_text().startswith(f"---\nname: {name}\n"))
+            self.assertIn("../codex-moa/SKILL.md", skill.read_text())
+            self.assertTrue((skill.parent / "../codex-moa/SKILL.md").resolve().is_file())
+        self.assertIn("Refuse new Gemini-led runs", (plugin / "commands/gemini-led.md").read_text())
+        self.assertIn("luna-grok", manifest["interface"]["defaultPrompt"][0])
+        self.assertIn("grok-gemini", manifest["interface"]["defaultPrompt"][1])
         for name in ("localizer", "critic", "writer", "recovery", "verifier"):
             self.assertTrue((plugin / "agents" / f"{name}.md").is_file(), name)
-        for name in ("run", "grok-led", "gemini-led", "resume", "status", "review"):
+        for name in ("run", "grok-led", "gemini-led", "luna-grok", "grok-gemini", "resume", "status", "review"):
             self.assertTrue((plugin / "commands" / f"{name}.md").is_file(), name)
         source = "\n".join(
             path.read_text(errors="ignore")

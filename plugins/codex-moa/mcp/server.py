@@ -108,7 +108,7 @@ class CheckpointStore:
             raise StoreError("checkpoint record handle mismatch")
         checkpoint = value.get("checkpoint")
         try:
-            clean = validate_checkpoint(checkpoint)
+            clean = validate_checkpoint(checkpoint, allow_legacy=True)
         except CheckpointError as exc:
             raise StoreError(f"stored checkpoint failed validation: {exc}") from exc
         digest = checkpoint_digest(clean)
@@ -146,10 +146,23 @@ class CheckpointStore:
             previous_record = self.get(previous)
             if previous_record["checkpoint"]["run_id"] != checkpoint["run_id"]:
                 raise StoreError("previous checkpoint belongs to a different run_id")
+            prior = previous_record["checkpoint"]
+            for key in ("schema_version", "council", "leader_mode", "leader_model", "advisor_models"):
+                if prior.get(key) != checkpoint.get(key):
+                    raise StoreError(f"previous checkpoint changes council identity ({key}); historical runs require a new run_id")
+            if checkpoint["phase"] == "complete":
+                if prior["phase"] != "review" or prior.get("native_agents") != checkpoint.get("native_agents"):
+                    raise StoreError("completion must follow review with the same native agent witnesses")
+                if prior.get("changed_paths") != checkpoint.get("changed_paths") or prior.get("validation") != checkpoint.get("validation"):
+                    raise StoreError("completion must preserve the reviewed changes and validation evidence")
 
         digest = checkpoint_digest(checkpoint)
         records = self._records()
         for record in reversed(records):
+            if record["checkpoint"]["run_id"] == checkpoint["run_id"]:
+                for key in ("schema_version", "council", "leader_mode", "leader_model", "advisor_models"):
+                    if record["checkpoint"].get(key) != checkpoint.get(key):
+                        raise StoreError(f"run_id already binds a different council identity ({key})")
             if (
                 record["checkpoint"]["run_id"] == checkpoint["run_id"]
                 and record["digest"] == digest
@@ -237,12 +250,14 @@ def tool_definitions() -> list[dict[str, Any]]:
             "objective",
             "phase",
             "leader_mode",
+            "council",
+            "advisor_models",
             "leader_model",
             "next_action",
         ],
         "additionalProperties": False,
         "properties": {
-            "schema_version": {"type": "integer", "const": 1},
+            "schema_version": {"type": "integer", "const": 2},
             "run_id": {"type": "string", "minLength": 1, "maxLength": 128},
             "objective": {"type": "string", "minLength": 1, "maxLength": 8000},
             "phase": {
@@ -260,7 +275,9 @@ def tool_definitions() -> list[dict[str, Any]]:
                 ],
             },
             "status": {"type": "string", "enum": ["active", "complete", "blocked"]},
-            "leader_mode": {"type": "string", "enum": ["grok-led", "gemini-led"]},
+            "leader_mode": {"type": "string", "enum": ["luna-grok", "grok-gemini"]},
+            "council": {"type": "string", "enum": ["luna-grok", "grok-gemini"]},
+            "native_agents": {"type": "array", "maxItems": 4, "items": {"type": "object"}, "description": "Observed native agent witnesses: role, model, actual agent_id, verdict (OBSERVED/APPROVE/REQUEST_CHANGES), summary of returned response, transcript_ref; reviewer also requires reviewed_revision. Agent-submitted evidence is not cryptographically authenticated."},
             "leader_model": {"type": "string", "minLength": 1, "maxLength": 256},
             "advisor_models": {"type": "array", "maxItems": 4, "items": {"type": "string"}},
             "constraints": {"type": "array", "maxItems": 64, "items": {"type": "string"}},

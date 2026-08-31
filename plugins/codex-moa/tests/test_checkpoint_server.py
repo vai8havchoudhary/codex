@@ -22,12 +22,13 @@ SPEC.loader.exec_module(server)
 
 def checkpoint(**overrides):
     value = {
-        "schema_version": 1,
+        "schema_version": 2,
+        "council": "grok-gemini",
         "run_id": "repo-repair-1",
         "objective": "Repair the repository with one coherent native plugin tree.",
         "phase": "implement",
         "status": "active",
-        "leader_mode": "grok-led",
+        "leader_mode": "grok-gemini",
         "leader_model": "grok-4.6",
         "advisor_models": ["gemini-3.7-flash-high"],
         "constraints": ["one writer", "no release tag"],

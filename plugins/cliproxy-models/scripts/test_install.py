@@ -27,7 +27,7 @@ config_transaction = sys.modules["config_transaction"]
 
 
 def catalogs(openai: list[str], codex: list[str] | None = None):
-    return install.Catalogs(tuple(openai), tuple(codex or openai))
+    return install.Catalogs(tuple(openai) + ("gpt-5.6-luna",), tuple(codex or openai) + ("gpt-5.6-luna",))
 
 
 class CatalogTests(unittest.TestCase):
@@ -133,6 +133,7 @@ class ConfigTests(unittest.TestCase):
             base_original=base,
             grok_original=grok,
             gemini_original=gemini,
+            catalog_path=Path("/tmp/fixture-council-models.json"),
             provider=self.provider,
             models=self.models,
             activate_provider=True,
@@ -248,6 +249,7 @@ model_provider = "cliproxyapi"
             base_original=first.base,
             grok_original=first.grok,
             gemini_original=first.gemini,
+            catalog_path=Path("/tmp/fixture-council-models.json"),
             provider=install.Provider(
                 self.provider.provider_id,
                 self.provider.name,
@@ -266,6 +268,7 @@ model_provider = "cliproxyapi"
             base_original='model = "gpt-5.6"\nmodel_provider = "openai"\n',
             grok_original="",
             gemini_original="",
+            catalog_path=Path("/tmp/fixture-council-models.json"),
             provider=self.provider,
             models=self.models,
             activate_provider=False,

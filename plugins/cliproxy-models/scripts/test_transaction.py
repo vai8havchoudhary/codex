@@ -39,7 +39,7 @@ class CatalogHandler(http.server.BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
-        ids = ["grok-4.6", "gemini-3.7-flash-high"]
+        ids = ["grok-4.6", "gemini-3.7-flash-high", "gpt-5.6-luna"]
         if "client_version=" in self.path:
             payload = {"models": [{"slug": value} for value in ids]}
         else:
@@ -52,7 +52,7 @@ class CatalogHandler(http.server.BaseHTTPRequestHandler):
 
 class EndToEndTests(unittest.TestCase):
     def _offline_files(self, root: Path) -> tuple[Path, Path]:
-        ids = ["grok-4.6", "gemini-3.7-flash-high"]
+        ids = ["grok-4.6", "gemini-3.7-flash-high", "gpt-5.6-luna"]
         openai = root / "openai.json"
         codex = root / "codex.json"
         openai.write_text(json.dumps({"data": [{"id": value} for value in ids]}))

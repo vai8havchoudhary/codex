@@ -1,5 +1,5 @@
 ---
-description: Run a long-horizon coding task with Gemini 3.7 Flash writing and Grok 4.6 advising and reviewing.
+description: Explain why Gemini-led native councils are unsupported and direct the user to supported named councils.
 ---
 
-Use the `codex-moa` skill in `gemini-led` mode. Resolve the exact installed model IDs first. Keep Gemini as the single acting writer and Grok as the independent localization, criticism, recovery, and final-review model unless a disjoint worker boundary is explicitly justified.
+Refuse new Gemini-led runs: the qualified Gemini root did not expose native spawn tools. Do not silently reinterpret this request or claim an opposite-model review. Offer `luna-grok` or `grok-gemini`; the user must start the corresponding named root profile. Historical schema-1 checkpoints remain readable evidence only.
