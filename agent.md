@@ -26,7 +26,7 @@ The seven paths form one transaction: snapshot, ownership/path validation, coord
 
 A native Codex coordination policy using Codex's own agent tree, model overrides, messaging, bounded forks, skills, commands, and checkpoint MCP server. It contains no external model loop.
 
-The supported councils are `luna-grok` (exact `gpt-5.6-luna` root and `grok-4.6` reviewer) and `grok-gemini` (`grok-4.6` root and `gemini-3.7-flash-high` reviewer). Gemini-led is unsupported. The root is the coordinator and default single writer. The opposite model is consulted at localization, plan criticism, concrete-failure recovery, and independent final review—not after every step.
+The supported councils are `luna-grok` (exact `gpt-5.6-luna` root and `grok-4.6` reviewer) and `grok-gemini` (`grok-4.6` root and `gemini-3.7-flash-high` reviewer). Gemini-led is unsupported. The root is the coordinator and default single writer. The opposite model is consulted at plan criticism, concrete-failure recovery and independent final review—not after every step. Luna's Grok advisor also localizes; the Grok root localizes itself before supplying Gemini evidence.
 
 ## Packaged authority dependency
 
@@ -58,9 +58,12 @@ preflight -> localize -> plan -> implement -> validate -> review -> complete
 - treat repository gates as authoritative;
 - allow at most two coherent repair rounds per blocker;
 - record immutable checkpoints and reconcile live state on resume;
-- reserve a proven read-only final reviewer before implementation; reuse the localizer as plan critic;
+- for Luna, reserve a proven read-only Grok final reviewer before implementation and reuse the localizer as plan critic;
+- for Grok, gather source at the root; Gemini reviewed supplied evidence only through fresh single-turn plan criticism and distinct fresh final review, with no tools, READY reservation, follow-ups or history reuse;
+- bound each Gemini semantic gate to one primary plus at most one fresh transport retry; capability exhaustion blocks, never resets as implementation repair; complete initial packets and packet SHA-256/native references are required by policy;
 - require an actual returned opposite-model final verdict on the final diff and evidence;
 - schema-2 records enforce exact council identity and structured reviewer witnesses; schema-1 records are read-only historical evidence, and payload checksums do not authenticate claimed native calls.
+- preserve historical schema-2 read/digest compatibility; enforce Gemini final-reviewer freshness only on new writes across the entire same-run history, not merely the current payload.
 
 ## Checkpoint MCP boundary
 

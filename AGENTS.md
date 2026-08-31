@@ -25,6 +25,7 @@ Read [agent.md](agent.md) before non-trivial changes.
 - Supported councils are `luna-grok` (exact Luna root, Grok reviewer) and `grok-gemini` (Grok root, Gemini High reviewer). Gemini-led new runs are unsupported. Named profile root instructions must not impose leader obligations on child advisors.
 - New checkpoint writes use schema 2 and bind council/model identity with native final-review witnesses; historical schema 1 remains read-only. A valid witness shape is not authenticated evidence: audit native runtime events.
 - Keep single-writer ownership, bounded fanout/recovery, repository-native validation, and independent final review.
+- Luna retains tool-capable read-only Grok advisors. Grok gathers source; Gemini reviewed supplied evidence only through fresh single-turn native critics/final reviewers, with no tools, READY reservation or follow-ups. Keep finite per-gate transport budgets separate from implementation repair. Preserve historical schema-2 read/digest compatibility when strengthening new-write policy.
 - `.bootstrap/`, `native-moa.b64.part-*`, `materialize-native-moa.yml`, and `plugins/hermes-moa` remain physically absent.
 
 ## Change workflow

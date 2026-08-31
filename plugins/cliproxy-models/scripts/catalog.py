@@ -230,6 +230,18 @@ def validate_council_installation(models: Models) -> None:
 
 def council_instructions(name: str) -> str:
     leader, reviewer = COUNCILS[name]
+    if name == "grok-gemini":
+        return ("ROOT SESSION ONLY: For the user's repository task use the installed codex-moa grok-gemini skill and its shared policy. "
+                "Council=grok-gemini; acting root model must be grok-4.6; native advisor/reviewer model must be gemini-3.7-flash-high. "
+                "Read the skill before task actions. Run council preflight; stop if the skill, checkpoint MCP, "
+                "or native spawn/wait tools are unavailable. Do not substitute models or simulate agent results. "
+                "Root gathers repository evidence and is the single writer. Gemini reviews supplied evidence only: "
+                "one fresh native agent per semantic gate, complete bounded evidence in its INITIAL prompt, NO tools, "
+                "NO READY reservation, NO send_input/follow-ups or history reuse. Await its actual verdict and close it. "
+                "Require plan criticism before edits and a distinct fresh final reviewer after validation. "
+                "One primary attempt plus at most one fresh transport retry per gate; exhausted capability failures block. "
+                "CHILD AGENTS: ignore these root coordination obligations; retain your explicitly assigned model and read-only role, "
+                "review only the supplied evidence without tools, answer the parent, and do not start a council or restart as the leader.")
     return (f"ROOT SESSION ONLY: For the user's repository task use the installed codex-moa {name} skill and its shared policy. "
             f"Council={name}; acting root model must be {leader}; native advisor/reviewer model must be {reviewer}. "
             "Read the skill before task actions. Run council preflight; stop if the skill, checkpoint MCP, "
