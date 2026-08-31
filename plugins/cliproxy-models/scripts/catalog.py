@@ -18,6 +18,12 @@ DEFAULT_BASE_URL = "http://127.0.0.1:8317/v1"
 DEFAULT_KEY_ENV = "CLIPROXY_API_KEY"
 GROK_PROFILE = "cliproxy-grok-4-6"
 GEMINI_PROFILE = "cliproxy-gemini-3-7-flash"
+LUNA_PROFILE = "cliproxy-luna"
+LUNA_MODEL = "gpt-5.6-luna"
+COUNCILS = {"luna-grok": (LUNA_MODEL, "grok-4.6"), "grok-gemini": ("grok-4.6", "gemini-3.7-flash-high")}
+PROFILE_NAMES = (GROK_PROFILE, GEMINI_PROFILE, LUNA_PROFILE, *COUNCILS)
+MODEL_CATALOG_FILE = "cliproxy-council-models.json"
+CATALOG_MODELS = (LUNA_MODEL, "grok-4.6", "gemini-3.7-flash-high")
 BEGIN = "# BEGIN CODEX CLIPROXYAPI MODELS (managed)"
 END = "# END CODEX CLIPROXYAPI MODELS (managed)"
 CLIENT_VERSION = "999.0.0"
@@ -42,12 +48,14 @@ class Provider:
 class Catalogs:
     openai_ids: tuple[str, ...]
     codex_slugs: tuple[str, ...]
+    codex_models: tuple[dict[str, Any], ...] = ()
 
 
 @dataclass(frozen=True)
 class Models:
     grok: str
     gemini: str
+    luna: str = LUNA_MODEL
 
 
 def parse_toml(text: str, source: str) -> dict[str, Any]:
@@ -144,7 +152,8 @@ def read_catalogs(base_url: str, env_key: str | None, models_file: Path | None, 
     else:
         openai_payload = request_json(models_url(base_url, False), env_key, timeout)
         codex_payload = request_json(models_url(base_url, True), env_key, timeout)
-    return Catalogs(extract_openai_ids(openai_payload), extract_codex_slugs(codex_payload))
+    return Catalogs(extract_openai_ids(openai_payload), extract_codex_slugs(codex_payload),
+                    tuple(dict(entry) for entry in codex_payload["models"] if isinstance(entry, Mapping)))
 
 
 def canon(value: str) -> str:
@@ -203,8 +212,65 @@ def resolve_one(catalogs: Catalogs, family: str, version: str, marker: str | Non
     raise InstallError(f"CLIProxyAPI exports multiple possible aliases for {label}: {', '.join(pool)}; select one explicitly")
 
 
-def resolve_models(catalogs: Catalogs, grok: str | None = None, gemini: str | None = None) -> Models:
-    return Models(resolve_one(catalogs, "grok", "4.6", None, grok), resolve_one(catalogs, "gemini", "3.7", "flash", gemini))
+def resolve_models(catalogs: Catalogs, grok: str | None = None, gemini: str | None = None, luna: str | None = None) -> Models:
+    resolved_grok = resolve_one(catalogs, "grok", "4.6", None, grok)
+    resolved_gemini = resolve_one(catalogs, "gemini", "3.7", "flash", gemini)
+    if luna not in (None, LUNA_MODEL):
+        raise InstallError(f"Luna requires exact {LUNA_MODEL!r}; advisor or alternate aliases are not supported")
+    if LUNA_MODEL not in catalogs.openai_ids or LUNA_MODEL not in catalogs.codex_slugs:
+        raise InstallError(f"requested alias {LUNA_MODEL!r} is not present in both CLIProxyAPI catalogs")
+    return Models(resolved_grok, resolved_gemini, LUNA_MODEL)
+
+
+def validate_council_installation(models: Models) -> None:
+    if models.gemini != COUNCILS["grok-gemini"][1]:
+        raise InstallError("two-council installation requires --gemini-model gemini-3.7-flash-high; "
+                           f"requested {models.gemini!r}. Other Gemini aliases cannot satisfy grok-gemini; no silent substitution is allowed")
+
+
+def council_instructions(name: str) -> str:
+    leader, reviewer = COUNCILS[name]
+    return (f"ROOT SESSION ONLY: For the user's repository task use the installed codex-moa {name} skill and its shared policy. "
+            f"Council={name}; acting root model must be {leader}; native advisor/reviewer model must be {reviewer}. "
+            "Read the skill before task actions. Run council preflight; stop if the skill, checkpoint MCP, "
+            "or native spawn/wait tools are unavailable. Do not substitute models or simulate agent results. "
+            "One read-only localizer reused for plan criticism; reserve a second proven read-only final reviewer before edits. "
+            "Root is the single writer. CHILD AGENTS: ignore these root coordination obligations; retain your explicitly "
+            "assigned model and read-only role, answer the parent, and do not start a council or restart as the leader.")
+
+
+def validate_model_catalog(text: str) -> dict[str, Any]:
+    try:
+        value = json.loads(text)
+    except (ValueError, TypeError) as exc:
+        raise InstallError("managed model catalog is malformed JSON") from exc
+    if (not isinstance(value, dict) or set(value) != {"_codex_cliproxy_models", "models"}
+            or type(value.get("_codex_cliproxy_models")) is not int
+            or value["_codex_cliproxy_models"] != 1):
+        raise InstallError("model catalog is unmanaged or has an invalid ownership marker; refusing to overwrite")
+    entries = value["models"]
+    if not isinstance(entries, list) or not all(isinstance(entry, dict) for entry in entries):
+        raise InstallError("managed model catalog requires model objects")
+    ids = [entry.get("slug") for entry in entries]
+    if len(ids) != len(CATALOG_MODELS) or not all(isinstance(item, str) for item in ids) or set(ids) != set(CATALOG_MODELS):
+        raise InstallError("managed model catalog must contain exactly the three supported council model IDs")
+    return value
+
+
+def render_model_catalog(catalogs: Catalogs, original: str | None) -> str:
+    if original is not None:
+        validate_model_catalog(original)
+    selected: list[dict[str, Any]] = []
+    for model in CATALOG_MODELS:
+        if model not in catalogs.openai_ids or model not in catalogs.codex_slugs:
+            raise InstallError(f"council model {model!r} must appear in both catalogs")
+        entries = [entry for entry in catalogs.codex_models if entry.get("slug") == model]
+        if len(entries) != 1:
+            raise InstallError(f"council model {model!r} requires one exact live Codex metadata entry; capabilities cannot be synthesized")
+        selected.append(entries[0])
+    rendered = json.dumps({"_codex_cliproxy_models": 1, "models": selected}, ensure_ascii=False, sort_keys=True, indent=2) + "\n"
+    validate_model_catalog(rendered)
+    return rendered
 
 
 def provider_tables(parsed: Mapping[str, Any]) -> dict[str, Mapping[str, Any]]:

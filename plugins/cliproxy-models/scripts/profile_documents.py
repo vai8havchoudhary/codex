@@ -11,6 +11,10 @@ from catalog import (
     END,
     GEMINI_PROFILE,
     GROK_PROFILE,
+    LUNA_PROFILE,
+    COUNCILS,
+    council_instructions,
+    validate_council_installation,
     InstallError,
     Models,
     Provider,
@@ -32,6 +36,9 @@ class ConfigDocuments:
     base: str
     grok: str
     gemini: str
+    luna: str
+    luna_grok: str
+    grok_gemini: str
 
 
 def profile_path(config: Path, profile_name: str) -> Path:
@@ -187,6 +194,8 @@ def render_profile_config(
     profile_name: str,
     model: str,
     provider_id: str,
+    instructions: str | None = None,
+    catalog_path: Path | None = None,
 ) -> str:
     source = f"{profile_name}.config.toml"
     parse_toml(original, f"existing {source}")
@@ -198,7 +207,7 @@ def render_profile_config(
     )
     if managed is not None:
         managed_parsed = parse_toml(managed, f"existing managed block in {source}")
-        unexpected = set(managed_parsed) - {"model", "model_provider"}
+        unexpected = set(managed_parsed) - {"model", "model_provider", "developer_instructions", "model_catalog_json"}
         if unexpected:
             raise InstallError(
                 f"managed block in {source} contains unexpected keys: "
@@ -207,7 +216,7 @@ def render_profile_config(
     parsed_base = parse_toml(base, f"{source} outside the managed block")
     _legacy_profile_error(parsed_base, source)
     collisions = sorted(
-        key for key in ("model", "model_provider") if key in parsed_base
+        key for key in ("model", "model_provider", "developer_instructions", "model_instructions_file", "model_catalog_json") if key in parsed_base and (instructions is not None or key in {"model", "model_provider"})
     )
     if collisions:
         raise InstallError(
@@ -219,6 +228,8 @@ def render_profile_config(
             PROFILE_BEGIN,
             f"model = {json.dumps(model, ensure_ascii=False)}",
             f"model_provider = {json.dumps(provider_id, ensure_ascii=False)}",
+            *([f"developer_instructions = {json.dumps(instructions, ensure_ascii=False)}"] if instructions is not None else []),
+            *([f"model_catalog_json = {json.dumps(str(catalog_path), ensure_ascii=False)}"] if catalog_path is not None else []),
             PROFILE_END,
         ]
     ) + "\n"
@@ -235,12 +246,21 @@ def render_documents(
     base_original: str,
     grok_original: str,
     gemini_original: str,
+    luna_original: str = "",
+    luna_grok_original: str = "",
+    grok_gemini_original: str = "",
+    catalog_path: Path,
     provider: Provider,
     models: Models,
     activate_provider: bool,
     default_model: str | None,
 ) -> ConfigDocuments:
     documents = ConfigDocuments(
+        luna=render_profile_config(luna_original, LUNA_PROFILE, models.luna, provider.provider_id),
+        luna_grok=render_profile_config(luna_grok_original, "luna-grok", models.luna,
+                                       provider.provider_id, council_instructions("luna-grok"), catalog_path),
+        grok_gemini=render_profile_config(grok_gemini_original, "grok-gemini", models.grok,
+                                         provider.provider_id, council_instructions("grok-gemini"), catalog_path),
         base=render_base_config(
             base_original,
             provider,
@@ -260,7 +280,7 @@ def render_documents(
             provider.provider_id,
         ),
     )
-    validate_documents(documents, provider, models, activate_provider)
+    validate_documents(documents, provider, models, activate_provider, catalog_path)
     return documents
 
 
@@ -269,8 +289,10 @@ def validate_documents(
     provider: Provider,
     models: Models,
     activate_provider: bool,
+    catalog_path: Path,
 ) -> None:
     base = parse_toml(documents.base, "base config.toml")
+    validate_council_installation(models)
     _legacy_profile_error(base, "base config.toml")
     providers = base.get("model_providers")
     if not isinstance(providers, Mapping):
@@ -286,6 +308,9 @@ def validate_documents(
     expected = (
         (GROK_PROFILE, documents.grok, models.grok),
         (GEMINI_PROFILE, documents.gemini, models.gemini),
+        (LUNA_PROFILE, documents.luna, models.luna),
+        ("luna-grok", documents.luna_grok, models.luna),
+        ("grok-gemini", documents.grok_gemini, models.grok),
     )
     for name, text, model in expected:
         parsed = parse_toml(text, f"{name}.config.toml")
@@ -294,4 +319,13 @@ def validate_documents(
             raise InstallError(f"{name}.config.toml selects the wrong model")
         if parsed.get("model_provider") != provider.provider_id:
             raise InstallError(f"{name}.config.toml selects the wrong provider")
+        if name in COUNCILS:
+            if not catalog_path.is_absolute() or parsed.get("model_catalog_json") != str(catalog_path):
+                raise InstallError(f"{name}.config.toml has incorrect managed model catalog pointer")
+            if "model_instructions_file" in parsed:
+                raise InstallError(f"{name}.config.toml overrides model instructions")
+            if parsed.get("developer_instructions") != council_instructions(name):
+                raise InstallError(f"{name}.config.toml has incorrect council instructions")
+            if parsed.get("model") != COUNCILS[name][0]:
+                raise InstallError(f"{name} requires exact leader {COUNCILS[name][0]}")
 

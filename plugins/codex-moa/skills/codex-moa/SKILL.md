@@ -1,77 +1,40 @@
 ---
 name: codex-moa
-description: Coordinate native Codex subagents across Grok 4.6 and Gemini 3.7 Flash for long-horizon repository coding. Use for multi-file, high-uncertainty, or validation-heavy work that benefits from model-diverse localization, planning, recovery, and independent review. Do not use for a narrow edit that one agent can complete directly.
+description: Coordinate long-horizon repository tasks with native Codex subagents using luna-grok (Luna writes, Grok reviews) or grok-gemini (Grok writes, Gemini reviews). Use for model-diverse multi-file implementation, validation-heavy work, or checkpoint resumption; not ordinary narrow edits.
 ---
 
-# Native Codex MoA for long-horizon coding
+# Native Codex MoA
 
-This plugin is a coordination policy for Codex's own multi-agent tools. It is not an alternate agent runtime. Never invoke Hermes Agent, create a second orchestration loop, or move CLIProxyAPI account routing into this plugin.
+This is a policy for Codex's native agent tools, not another scheduler or model loop. CLIProxyAPI owns model routing and credentials; `cliproxy-models` admits exact IDs and owns the shared provider/profile transaction. The checkpoint MCP stores state only; it cannot call models or execute commands. Never read, enumerate, print, summarize, or persist proxy account files or the value of `CLIPROXY_API_KEY`.
 
-## Authority boundary
+## Choose the named council
 
-- Codex owns threads, subagents, tools, permissions, sandboxing, repository writes, and user interaction.
-- `cliproxy-models` owns exact model admission and the two Codex profiles.
-- CLIProxyAPI owns upstream accounts, OAuth sessions, credentials, quotas, health checks, retries, and failover.
-- `codex-moa-checkpoints` stores only compact immutable milestone records. It never calls a model or executes code.
+| Council / profile | Acting root and single writer | Read-only advisor/reviewer |
+| --- | --- | --- |
+| `luna-grok` | `gpt-5.6-luna` | `grok-4.6` |
+| `grok-gemini` | `grok-4.6` | `gemini-3.7-flash-high` |
 
-Never read, enumerate, print, summarize, or persist proxy account files or the value of `CLIPROXY_API_KEY`.
+Start with `codex --profile luna-grok` or `codex --profile grok-gemini`. The matching discoverable skill also selects that council. A skill cannot change the root model: if the actual session model differs, stop and ask to restart with the named profile. Do not choose `gpt-5.6-luna-advisor`, an alias, or another model as a substitute.
 
-## Activation gate
+Gemini-led is unsupported: the qualified Gemini root did not expose native spawn tools. Historical `gemini-led` checkpoints are readable evidence only, not proof that a new council can run. The old `grok-led` command aliases `grok-gemini`.
 
-Use a council when at least one condition is true:
+## Preflight and native capability witness
 
-- the task spans multiple dependent files or subsystems;
-- the installed/runtime path is uncertain;
-- the task has destructive migration or security implications;
-- the validation surface is broad or failures are likely to be ambiguous;
-- the work is expected to require several milestones or may need resumption;
-- a model-diverse review can materially alter the plan.
-
-For a single obvious edit, use normal Codex execution. Extra agents are not a quality substitute for repository evidence.
-
-## Preflight
-
-1. Read the repository's `AGENTS.md` and nearest instructions.
-2. Inspect the working tree, current branch, task authority, and validation commands.
-3. Resolve this plugin's root and run:
+1. Read repository instructions; inspect the branch, worktree, task scope, writer ownership, and repository-native validation commands.
+2. Run the installed plugin's preflight with the selected council and the *observed* root model:
 
 ```bash
-python3 <codex-moa-root>/scripts/preflight.py --json
+python3 <codex-moa-root>/scripts/preflight.py --council luna-grok \
+  --leader-model gpt-5.6-luna --gemini-model gemini-3.7-flash-high --json
 ```
 
-The preflight delegates model resolution to the sibling `cliproxy-models` authority and then verifies the installed Codex profiles. It must succeed before spawning model-specific agents.
+For `grok-gemini`, pass `--leader-model grok-4.6`. Preflight checks both proxy catalogs, exact pinned model authority, base provider, model overlays, and the selected council overlay. It does not prove native delegation works. Gemini `gemini-3.7-flash-high` and `gemini-3.7-flash-advisor` can both be published; automatic selection must fail. Do not choose between them silently. Set up explicitly through `cliproxy-models`; this council contract uses High.
 
-The observed VPS2 catalog may export both `gemini-3.7-flash-high` and `gemini-3.7-flash-advisor` without a bare `gemini-3.7-flash`. Automatic selection must fail as ambiguous. Select one exact alias explicitly through `cliproxy-models`, for example:
+3. Confirm the checkpoint MCP and native `spawn_agent`, messaging and wait tools are actually callable. Before editing, spawn one read-only opposite-model localizer, require a real returned response, and retain its actual agent ID. Reserve a second opposite-model read-only reviewer now with a short readiness-only request, wait for its response, and retain it. This prevents discovering a changed runtime model catalog only at the final gate.
+4. If either spawn/model override is rejected, or no actual opposite-model response returns, write `blocked` if possible and stop. Never simulate an agent, invent its ID, or use direct proxy calls as proof of native delegation.
+5. Establish a schema-2 `run_id`, `council`, equal `leader_mode`, exact leader/advisor IDs, constraints, owned paths, and retry budget at most two; write `preflight` through `checkpoint_put`.
 
-```text
-@cliproxy-models Set up with --gemini-model gemini-3.7-flash-high.
-```
-
-Then rerun preflight with the same exact selection when needed:
-
-```bash
-python3 <codex-moa-root>/scripts/preflight.py \
-  --gemini-model gemini-3.7-flash-high \
-  --json
-```
-
-Do not choose between `-high` and `-advisor` silently.
-
-4. Establish `run_id`, leader mode, exact leader model, exact advisor model, constraints, owned paths, and a retry budget of at most two.
-5. Write a `preflight` checkpoint through `checkpoint_put`.
-
-## Leader modes
-
-- `grok-led`: Grok 4.6 is the acting writer; Gemini 3.7 Flash is the independent advisor/reviewer.
-- `gemini-led`: Gemini 3.7 Flash is the acting writer; Grok 4.6 is the independent advisor/reviewer.
-
-The root Codex thread is the coordinator and, by default, the only writer. Model-diverse subagents are read-only unless the root assigns a disjoint file boundary explicitly.
-
-Use Codex native tools directly: `spawn_agent`, `send_message`, `followup_task`, `wait_agent`, `list_agents`, `interrupt_agent`, and `close_agent`. Do not wrap them in a custom scheduler.
-
-## Long-horizon state machine
-
-Use these phases in order unless evidence requires a bounded return to an earlier phase:
+## Bounded single-writer lifecycle
 
 ```text
 preflight -> localize -> plan -> implement -> validate -> review -> complete
@@ -79,113 +42,42 @@ preflight -> localize -> plan -> implement -> validate -> review -> complete
                                       +-> recover-+
 ```
 
-Checkpoint after each phase and after every material plan change.
+- **Localize:** use the one proven advisor for paths, callers, tests, and authority boundaries. Supply what the root already knows so it does not repeat discovery. Require concise evidence, not full files or repeated diffs.
+- **Plan:** the root synthesizes one dependency-aware plan and sends it to the same localizer as critic. Reuse its context; do not launch a second investigation. Accept one acting trajectory.
+- **Implement:** root is the single-writer. Both advisors stay read-only. User authorization still limits edits and external mutations. Do not give overlapping files to concurrent writers.
+- **Validate:** run repository-native gates at coherent milestones, record exact commands/exit codes, and distinguish narrow checks from required full gates. Queued CI is not a pass.
+- **Recover:** only for concrete failed gates or invalidated assumptions. Reuse the critic with the minimal failure evidence. Allow two coherent repair rounds per blocker; checkpoint `blocked` when exhausted.
+- **Review:** send the reserved independent reviewer the final diff/revision, requirements, and validation evidence. It has never written the patch. Require an actual returned `APPROVE` or `REQUEST_CHANGES` plus concrete evidence. A readiness acknowledgement is not review. If that agent is unavailable, one fresh reviewer attempt is allowed; if runtime rejects it, a retained read-only critic may review the final patch with the reduced independence disclosed. Never use the writer's own approval.
+- **Complete:** only after material findings are resolved, required gates pass, and an opposite-model final verdict covers the final patch. Close the retained agents after storing the final record.
 
-### 1. Localize
+Keep at most two live read-only advisors. Use bounded native waits (tool default, or integer timeout arguments) while the root does independent useful work. Do not poll rapidly or manufacture elapsed time with sleep. Budget at most five minutes per advisory gate with one focused follow-up; on no response, record the blocker instead of endless respawns. Do not rerender the whole diff after every tool call; give agents a path/revision and concise delta evidence.
 
-Use one or two read-only explorer agents with independent questions. Prefer different models when two genuinely distinct views are useful.
+Checkpoint at semantic milestones, not after every shell command. Keep logs, source files, and conversation transcripts outside checkpoint payloads.
 
-Good localization tasks:
+## Checkpoints and evidence
 
-- identify the installed production path and its callers;
-- map the relevant schema, tests, and release contracts;
-- locate conflicting authorities or compatibility layers;
-- identify the smallest coherent ownership boundary.
+New writes use schema 2. `council` and `leader_mode` must both be `luna-grok` or `grok-gemini`; exact leader and the single advisor model must match the table. Run identity cannot change inside a chain or by omitting `previous`.
 
-Require evidence with paths, symbols, and observed behavior. Do not ask explorers to propose broad rewrites. Avoid duplicating the same question across agents.
+Record observed native responses in `native_agents` (maximum four role witnesses):
 
-Use bounded context forks. For a fresh repository question, prefer `fork_turns="none"` and include the exact task, constraints, and checkpoint handle. For a tightly related follow-up, reuse the existing agent with `followup_task` or `send_message` instead of spawning another.
+```json
+{
+  "role": "reviewer",
+  "model": "grok-4.6",
+  "agent_id": "<actual native runtime agent ID>",
+  "verdict": "APPROVE",
+  "summary": "<concise returned final review evidence>",
+  "transcript_ref": "<log path and event/line reference>",
+  "reviewed_revision": "<commit SHA or final diff SHA-256>"
+}
+```
 
-### 2. Plan
+Roles are `localizer`, `critic`, `reviewer`, or `recovery`; non-review responses may use `OBSERVED`. Preserve the actual response reference and never transform a failed review into approval. Every reviewer requires a final revision.
 
-The acting writer synthesizes one implementation plan. Send that plan to the opposite-model critic for an independent challenge covering:
+A `complete` record must follow a `review` record with unchanged witnesses, changed paths, and passing validation evidence (exit code 0). It requires a returned reviewer `APPROVE`. Store/checksum validation proves payload shape and integrity, **not** that the model's claim is truthful. The caller must independently match witness IDs, exact models, returned verdicts and final revision against actual native runtime events. A self-written “Grok approved” sentence is not proof.
 
-- missing dependencies and callers;
-- authority and security boundaries;
-- unsafe migration ordering;
-- insufficient validation;
-- rollback, cleanup, or compatibility risks;
-- unnecessary scope.
+## Resume and stop
 
-Accept one plan. Record rejected alternatives and why they were rejected. Do not maintain parallel competing patch trajectories.
+Read `checkpoint_get`, reconcile current repository/branch/HEAD/worktree with the record, rerun preflight, and reestablish actual native agents; old agent IDs may no longer be live. Revalidate stale milestones. Schema-1 records remain readable with their original digest but are not accepted for new writes: start a new schema-2 run, reference the historical handle in evidence, and perform the missing capability/review gates.
 
-### 3. Implement
-
-Use single-writer ownership:
-
-- only the acting writer edits the task surface by default;
-- advisors, localizers, and reviewers remain read-only;
-- a spawned worker may write only when given an explicit disjoint path list and responsibility;
-- tell every writing agent that other work may exist and it must not revert unrelated changes;
-- never assign overlapping files to concurrent writers.
-
-Implement one coherent milestone at a time. After each milestone, record changed paths, decisions, evidence, risks, and the next validation command.
-
-### 4. Validate
-
-Run repository-native gates, not model confidence checks. Record exact commands, exit codes, and concise failure evidence.
-
-A milestone advances only when its required gates pass. A passing narrow test does not replace a required broader gate. Do not describe queued CI as passed.
-
-### 5. Recover
-
-Open a recovery council only when evidence warrants it:
-
-- a required validation command fails unexpectedly;
-- new repository evidence invalidates the accepted plan;
-- the same failure survives one repair attempt;
-- a public contract or authority boundary remains materially uncertain.
-
-Send the opposite-model recovery agent the checkpoint handle, exact failure command, exit code, minimal relevant output, current diff summary, and remaining retry budget. Ask for ranked causal hypotheses and the smallest discriminating checks.
-
-Maximum repair budget: two coherent repair rounds per blocker. On exhaustion, write a `blocked` checkpoint and stop rather than looping.
-
-### 6. Review
-
-Before completion, spawn an opposite-model read-only reviewer that did not own the final patch. Require review of the actual diff and gate evidence for:
-
-- complete requirement coverage;
-- unintended scope or stale files;
-- safety and authority regressions;
-- missing negative tests;
-- invalid release/version claims;
-- cleanup and rollback behavior.
-
-Address material findings within the remaining repair budget, rerun affected gates, then write the final checkpoint.
-
-## Checkpoint contract
-
-A checkpoint contains only compact execution state:
-
-- objective and phase;
-- exact leader/advisor model IDs;
-- constraints and accepted decisions;
-- evidence with commands and exit codes;
-- owned and changed paths;
-- validation state;
-- risks, retry budget, and next action;
-- optional previous checkpoint handle.
-
-Do not put source files, full conversations, credentials, tokens, cookies, account identifiers, or raw environment dumps into checkpoints. Use the opaque handle to resume; inspect the repository again instead of trusting stale narrative context.
-
-## Resume
-
-1. Call `checkpoint_get` with the supplied handle.
-2. Verify the current repository, branch, head, worktree, and task authority against the checkpoint.
-3. Rerun model preflight.
-4. Revalidate the last passed milestone if the repository changed.
-5. Continue from `next_action`, or create a `blocked` checkpoint if the state cannot be reconciled safely.
-
-## Stop conditions
-
-Stop fail-closed when:
-
-- exact models cannot be admitted in both CLIProxyAPI catalogs;
-- model alias ambiguity remains unresolved;
-- repository authority differs from the task guard;
-- the writer cannot establish exclusive or disjoint ownership;
-- a required destructive action lacks authorization;
-- the repair budget is exhausted;
-- required validation cannot be run and no honest alternative evidence exists.
-
-A stopped run must leave a compact `blocked` checkpoint with the exact remaining blocker. Never claim completion from a plan, an agent opinion, or a queued workflow.
+Stop fail-closed on missing model admission, unsupported direction, unavailable native tools, identity mismatch, uncertain write ownership, unapproved destructive scope, exhausted recovery, or missing required validation/review. Never claim completion from elapsed time, process exit alone, a plan, self-attested review, or a queued workflow.

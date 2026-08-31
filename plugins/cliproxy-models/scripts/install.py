@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install CLIProxyAPI Grok 4.6 and Gemini 3.7 Flash for Codex Desktop.
+"""Install CLIProxyAPI Luna, Grok 4.6 and Gemini 3.7 Flash for Codex Desktop.
 
 CLIProxyAPI remains the only owner of upstream accounts, credentials, quota
 balancing, and failover. Codex receives one provider endpoint and stable aliases.
@@ -20,6 +20,13 @@ from catalog import (
     DEFAULT_PROVIDER_ID,
     GEMINI_PROFILE,
     GROK_PROFILE,
+    LUNA_PROFILE,
+    PROFILE_NAMES,
+    COUNCILS,
+    MODEL_CATALOG_FILE,
+    render_model_catalog,
+    validate_model_catalog,
+    validate_council_installation,
     BEGIN,
     END,
     Catalogs,
@@ -47,7 +54,7 @@ from config_edit import (
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="add CLIProxyAPI Grok 4.6 and Gemini 3.7 Flash to Codex Desktop"
+        description="add CLIProxyAPI Luna, Grok 4.6, Gemini 3.7 Flash and named councils to Codex"
     )
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--provider-id", default=DEFAULT_PROVIDER_ID)
@@ -65,6 +72,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--grok-model", help="exact Grok 4.6 alias")
     parser.add_argument("--gemini-model", help="exact Gemini 3.7 Flash alias")
+    parser.add_argument("--luna-model", help="exact gpt-5.6-luna alias (no advisor substitution)")
     parser.add_argument("--models-response-file", type=Path, help="offline /v1/models JSON")
     parser.add_argument(
         "--codex-models-response-file",
@@ -78,7 +86,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--default",
-        choices=("preserve", "grok", "gemini"),
+        choices=("preserve", "grok", "gemini", "luna"),
         default="preserve",
     )
     parser.add_argument("--dry-run", action="store_true")
@@ -94,15 +102,21 @@ def _effective_documents(
     models: Models,
     activate: bool,
     default_model: str | None,
+    catalogs: Catalogs,
 ) -> tuple[list[PlannedFile], ConfigDocuments]:
-    grok_path = profile_path(config, GROK_PROFILE)
-    gemini_path = profile_path(config, GEMINI_PROFILE)
-    grok_state = read_state(grok_path, f"Codex profile {GROK_PROFILE}")
-    gemini_state = read_state(gemini_path, f"Codex profile {GEMINI_PROFILE}")
+    validate_council_installation(models)
+    states = [read_state(profile_path(config, name), f"Codex profile {name}") for name in PROFILE_NAMES]
+    catalog_path = config.parent.resolve() / MODEL_CATALOG_FILE
+    catalog_state = read_state(catalog_path, "managed council model catalog")
+    catalog_text = render_model_catalog(catalogs, catalog_state.content if catalog_state.existed else None)
     documents = render_documents(
         base_original=base_state.content,
-        grok_original=grok_state.content,
-        gemini_original=gemini_state.content,
+        grok_original=states[0].content,
+        gemini_original=states[1].content,
+        luna_original=states[2].content,
+        luna_grok_original=states[3].content,
+        grok_gemini_original=states[4].content,
+        catalog_path=catalog_path,
         provider=provider,
         models=models,
         activate_provider=activate,
@@ -110,8 +124,9 @@ def _effective_documents(
     )
     plans = [
         PlannedFile(base_state, documents.base),
-        PlannedFile(grok_state, documents.grok),
-        PlannedFile(gemini_state, documents.gemini),
+        *[PlannedFile(state, content) for state, content in zip(states,
+          (documents.grok, documents.gemini, documents.luna, documents.luna_grok, documents.grok_gemini), strict=True)],
+        PlannedFile(catalog_state, catalog_text),
     ]
     return plans, documents
 
@@ -128,11 +143,16 @@ def _post_validate(
             base=contents[plans[0].state.path],
             grok=contents[plans[1].state.path],
             gemini=contents[plans[2].state.path],
+            luna=contents[plans[3].state.path],
+            luna_grok=contents[plans[4].state.path],
+            grok_gemini=contents[plans[5].state.path],
         ),
         provider,
         models,
         activate,
+        plans[6].state.path,
     )
+    validate_model_catalog(contents[plans[6].state.path])
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -153,18 +173,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.codex_models_response_file,
             args.timeout,
         )
-        models = resolve_models(catalogs, args.grok_model, args.gemini_model)
+        models = resolve_models(catalogs, args.grok_model, args.gemini_model, args.luna_model)
         activate = not args.profiles_only
         current = parsed.get("model")
         if args.default == "grok":
             default_model = models.grok
         elif args.default == "gemini":
             default_model = models.gemini
+        elif args.default == "luna":
+            default_model = models.luna
         elif isinstance(current, str) and current:
             if activate and current not in catalogs.codex_slugs:
                 raise InstallError(
                     f"current Codex model {current!r} is not published by CLIProxyAPI; "
-                    "choose --default grok, --default gemini, or --profiles-only"
+                    "choose --default grok, --default gemini, --default luna, or --profiles-only"
                 )
             default_model = None
         else:
@@ -177,11 +199,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             models,
             activate,
             default_model,
+            catalogs,
         )
         changed = [plan for plan in plans if plan.changed]
         print(f"Provider: {provider.provider_id} -> {provider.base_url}")
         print(f"Profile {GROK_PROFILE}: {models.grok}")
         print(f"Profile {GEMINI_PROFILE}: {models.gemini}")
+        print(f"Profile {LUNA_PROFILE}: {models.luna}")
+        for name, (leader, reviewer) in COUNCILS.items():
+            print(f"Council {name}: {leader} -> {reviewer}")
         print(
             "Desktop catalog provider: "
             + ("unchanged" if args.profiles_only else provider.provider_id)
@@ -197,6 +223,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(documents.grok, end="")
             print(f"\n--- effective {GEMINI_PROFILE}.config.toml ---")
             print(documents.gemini, end="")
+            for name, content in zip(PROFILE_NAMES[2:], (documents.luna, documents.luna_grok, documents.grok_gemini), strict=True):
+                print(f"\n--- effective {name}.config.toml ---")
+                print(content, end="")
         if args.dry_run or not changed:
             return 0
 

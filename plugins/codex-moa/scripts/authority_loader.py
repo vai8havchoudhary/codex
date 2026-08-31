@@ -18,6 +18,7 @@ DEFAULT_CONFIG = Path.home() / ".codex" / "config.toml"
 KEY_ENV = "CLIPROXY_API_KEY"
 GROK_PROFILE = "cliproxy-grok-4-6"
 GEMINI_PROFILE = "cliproxy-gemini-3-7-flash"
+LUNA_PROFILE = "cliproxy-luna"
 PLUGIN_ID_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 SEMVER_RE = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 
@@ -54,6 +55,10 @@ class Result:
     base_url: str
     grok_model: str
     gemini_model: str
+    luna_model: str
+    council: str
+    leader_model: str
+    advisor_model: str
 
 
 def _read_json_object(path: Path, label: str) -> dict[str, Any]:

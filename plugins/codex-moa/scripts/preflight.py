@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import stat
 import sys
@@ -20,6 +21,7 @@ from authority_loader import (  # noqa: E402
     DEFAULT_CONFIG,
     GEMINI_PROFILE,
     GROK_PROFILE,
+    LUNA_PROFILE,
     KEY_ENV,
     PLUGIN_ROOT,
     DependencyContract,
@@ -116,8 +118,16 @@ def run_preflight(
     codex_models_response_file: Path | None,
     timeout: float,
     plugin_root: Path = PLUGIN_ROOT,
+    council: str = "grok-gemini",
+    luna_model: str | None = None,
+    leader_model: str | None = None,
 ) -> Result:
     catalog, adapter = load_authority(plugin_root)
+    if council not in catalog.COUNCILS:
+        raise PreflightError("unsupported council; use luna-grok or grok-gemini (Gemini-led native delegation is unsupported)")
+    expected_leader, expected_advisor = catalog.COUNCILS[council]
+    if leader_model is not None and leader_model != expected_leader:
+        raise PreflightError(f"{council} requires leader {expected_leader!r}, not {leader_model!r}; start the matching named profile")
     try:
         base_url = adapter.normalize_provider_base_url(url)
         catalogs = catalog.read_catalogs(
@@ -127,7 +137,7 @@ def run_preflight(
             codex_models_response_file,
             timeout,
         )
-        models = catalog.resolve_models(catalogs, grok_model, gemini_model)
+        models = catalog.resolve_models(catalogs, grok_model, gemini_model, luna_model)
     except (ValueError, catalog.InstallError) as exc:
         raise PreflightError(str(exc)) from exc
 
@@ -135,9 +145,11 @@ def run_preflight(
     _reject_legacy_profiles(parsed, config)
     configured_grok, grok_provider = _profile_overlay(config, GROK_PROFILE)
     configured_gemini, gemini_provider = _profile_overlay(config, GEMINI_PROFILE)
-    if grok_provider != gemini_provider:
+    configured_luna, luna_provider = _profile_overlay(config, LUNA_PROFILE)
+    configured_leader, council_provider = _profile_overlay(config, council)
+    if len({grok_provider, gemini_provider, luna_provider, council_provider}) != 1:
         raise PreflightError(
-            "Grok and Gemini profile overlays must use the same CLIProxyAPI provider"
+            "All model and selected council profile overlays must use the same CLIProxyAPI provider"
         )
     provider_id = grok_provider
 
@@ -178,7 +190,33 @@ def run_preflight(
         raise PreflightError(
             "Grok and Gemini profile overlays must resolve to different model IDs"
         )
-    return Result(provider_id, base_url, configured_grok, configured_gemini)
+    if configured_luna != models.luna:
+        raise PreflightError(f"{LUNA_PROFILE}.config.toml points to {configured_luna!r}, but live admission resolved {models.luna!r}")
+    if configured_leader != expected_leader:
+        raise PreflightError(f"{council}.config.toml selects wrong leader; expected {expected_leader!r}")
+    if models.grok != "grok-4.6" or (council == "grok-gemini" and models.gemini != expected_advisor):
+        raise PreflightError(f"{council} requires its exact leader/advisor IDs; alternate aliases cannot substitute")
+    council_config = _read_toml(profile_path(config, council), "council profile")
+    if council_config.get("developer_instructions") != catalog.council_instructions(council):
+        raise PreflightError(f"{council} profile has missing or mismatched council instructions; rerun setup")
+    if "model_instructions_file" in council_config:
+        raise PreflightError(f"{council} profile must not override model instructions")
+    snapshot = config.parent.resolve() / catalog.MODEL_CATALOG_FILE
+    if council_config.get("model_catalog_json") != str(snapshot):
+        raise PreflightError(f"{council} must pin the managed model catalog {snapshot}; rerun setup")
+    try:
+        info = snapshot.lstat()
+        if not stat.S_ISREG(info.st_mode) or stat.S_ISLNK(info.st_mode):
+            raise PreflightError("managed model catalog must be a regular non-symlink file")
+        text = snapshot.read_text(encoding="utf-8")
+        value = catalog.validate_model_catalog(text)
+        current = json.loads(catalog.render_model_catalog(catalogs, text))
+        if value != current:
+            raise PreflightError("managed model catalog metadata is stale; rerun setup from the live proxy")
+    except (OSError, UnicodeError, ValueError, catalog.InstallError) as exc:
+        raise PreflightError(f"invalid managed council model catalog: {exc}") from exc
+    return Result(provider_id, base_url, configured_grok, configured_gemini,
+                  configured_luna, council, expected_leader, expected_advisor)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -190,6 +228,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument("--grok-model")
     parser.add_argument("--gemini-model")
+    parser.add_argument("--luna-model")
+    parser.add_argument("--council", choices=("luna-grok", "grok-gemini"), default="grok-gemini")
+    parser.add_argument("--leader-model", help="observed root model; mismatch fails closed")
     parser.add_argument("--models-response-file", type=Path)
     parser.add_argument("--codex-models-response-file", type=Path)
     parser.add_argument("--timeout", type=float, default=5.0)
@@ -205,6 +246,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             config=args.config,
             grok_model=args.grok_model,
             gemini_model=args.gemini_model,
+            luna_model=args.luna_model,
+            council=args.council,
+            leader_model=args.leader_model,
             models_response_file=args.models_response_file,
             codex_models_response_file=args.codex_models_response_file,
             timeout=args.timeout,
@@ -222,6 +266,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "base_url": result.base_url,
                     "grok_model": result.grok_model,
                     "gemini_model": result.gemini_model,
+                    "luna_model": result.luna_model,
+                    "council": result.council,
+                    "leader_model": result.leader_model,
+                    "advisor_model": result.advisor_model,
+                    "native_delegation": "unverified: require a real spawn and returned response before editing",
                 },
                 sort_keys=True,
             )
@@ -230,6 +279,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"Provider: {result.provider_id} -> {result.base_url}")
         print(f"Grok: {result.grok_model}")
         print(f"Gemini: {result.gemini_model}")
+        print(f"Luna: {result.luna_model}")
+        print(f"Council {result.council}: {result.leader_model} -> {result.advisor_model}; native delegation still requires runtime verification")
     return 0
 
 

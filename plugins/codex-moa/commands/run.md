@@ -1,5 +1,5 @@
 ---
-description: Start a native Codex MoA run with adaptive councils and durable milestone checkpoints.
+description: Run a supported luna-grok or grok-gemini native council with bounded advisory gates and durable checkpoints.
 ---
 
-Use the `codex-moa` skill. Decide whether the task clears the activation gate, perform model/repository preflight, choose the requested leader mode, and execute the bounded long-horizon state machine. Keep one writer, use model-diverse agents only at high-leverage gates, and checkpoint every validated milestone.
+Use the requested named skill and shared `codex-moa` policy. Confirm the actual root matches the council (Luna for `luna-grok`, Grok for `grok-gemini`) and establish real opposite-model native responses before editing. If no council was specified, choose only one matching the actual root; otherwise ask to start a supported named profile. Never use Gemini-led for new runs.

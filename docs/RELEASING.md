@@ -28,11 +28,15 @@ The model-plugin minor bump is mandatory: `cliproxy-models` 1.0.0 has historical
 5. On exact main, fresh-install both versions from the live marketplace.
 6. Run automatic Gemini ambiguity refusal and explicit `gemini-3.7-flash-high` setup.
 7. Verify base `config.toml` contains no `profile` selector or `[profiles.*]` table.
-8. Verify both separate profile files exist, are mode `0600`, and work with `codex exec --profile`.
-9. Verify setup idempotence, default switching/restoration, exact model preflight, checkpoint MCP round trip, and one bounded native council.
-10. Record exact evidence and unresolved blockers honestly.
+8. Verify all five separate profile files exist, are mode `0600`, and work with `codex exec --profile`.
+9. Verify the seventh owned JSON model catalog and named `model_catalog_json` pointers; verify exact live metadata, no shared-cache dependence, and no base-default pointer change.
+10. Verify setup idempotence, default switching/restoration, exact model preflight, checkpoint MCP round trip, and both `luna-grok` and `grok-gemini` native councils over genuine 10–20 minute complex tasks.
+11. Audit native event logs for actual opposite-model agent IDs, model overrides, returned final verdicts, final revision, and passing gates. Checkpoint witnesses or process exit alone are not proof. Gemini-led must be refused.
+12. Record exact evidence and unresolved blockers honestly.
 
 The prior evidence in `VPS2_GATE_2026-08-30.md` is useful but predates the profile-file correction. Do not publish before the fresh exact-main gate.
+
+The untagged release candidate keeps versions 2.0.0 / 1.1.0 during the named-council correctness correction. This is not a cachebuster bump and does not authorize publishing or moving the stale release branch.
 
 ## Publication paths
 
@@ -49,4 +53,4 @@ The archive must contain both native plugins, `release.json`, marketplace metada
 
 ## Post-release verification
 
-Verify tag target, release assets/checksum, archive contents, installed versions 1.1.0/2.0.0, modern profile execution, exact preflight, MCP discovery/round trip, and a bounded council smoke run.
+Verify tag target, release assets/checksum, archive contents, installed versions 1.1.0/2.0.0, modern profile execution, exact preflight, MCP discovery/round trip, and long-horizon qualification of both named councils.

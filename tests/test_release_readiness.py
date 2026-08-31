@@ -12,6 +12,55 @@ AUTHORITY = ROOT / "plugins/codex-moa/authority.json"
 
 
 class ReleaseReadinessTests(unittest.TestCase):
+    def test_model_setup_and_status_commands_cover_named_install_contract(self) -> None:
+        commands = ROOT / "plugins/cliproxy-models/commands"
+        for name in ("setup", "status"):
+            text = (commands / f"{name}.md").read_text()
+            for item in ("gpt-5.6-luna", "luna-grok", "grok-gemini", "--gemini-model gemini-3.7-flash-high"):
+                self.assertIn(item, text, name)
+        self.assertIn("`grok`, `gemini`, or `luna`", (commands / "setup.md").read_text())
+        self.assertIn("does not prove native delegation", (commands / "status.md").read_text())
+
+    def test_security_inventory_and_hardening_cover_every_managed_document(self) -> None:
+        security = (ROOT / "SECURITY.md").read_text()
+        expected = {
+            "config.toml", "cliproxy-grok-4-6.config.toml",
+            "cliproxy-gemini-3-7-flash.config.toml", "cliproxy-luna.config.toml",
+            "luna-grok.config.toml", "grok-gemini.config.toml",
+            "cliproxy-council-models.json",
+        }
+        inventory = set(re.findall(r"(?m)^~/.codex/([A-Za-z0-9.-]+)$", security))
+        hardening = set(re.findall(r'(?m)^chmod 600 "\$HOME/\.codex/([A-Za-z0-9.-]+)"$', security))
+        self.assertEqual(inventory, expected)
+        self.assertEqual(hardening, expected)
+        for concept in ("_codex_cliproxy_models", "model_catalog_json", "developer_instructions",
+                        "symlink", "concurrent-change", "rollback", "post-validation"):
+            self.assertIn(concept, security)
+        for model in ("gpt-5.6-luna", "grok-4.6", "gemini-3.7-flash-high"):
+            self.assertIn(model, security)
+        self.assertIn("Gemini-led new runs are unsupported", security)
+        self.assertIn("Leader obligations apply only to the root", security)
+
+    def test_public_security_and_privacy_explain_stored_metadata_and_witness_limits(self) -> None:
+        for name in ("SECURITY.md", "PRIVACY.md"):
+            with self.subTest(document=name):
+                text = (ROOT / name).read_text()
+                for concept in ("cliproxy-council-models.json", "model_catalog_json",
+                                "developer_instructions", "luna-grok", "grok-gemini",
+                                "full live Codex descriptors", "capabilities", "model instructions",
+                                "agent IDs", "model IDs", "verdicts", "transcript references",
+                                "reviewed revisions", "not authenticated attestations",
+                                "payload integrity", "Schema-2", "Schema-1", "read-only",
+                                "CLIPROXY_API_KEY", "CODEX_HOME", "0600", "0700"):
+                    self.assertIn(concept, text)
+                self.assertIn("No plugin reads or enumerates proxy account files", text)
+                self.assertIn("not a general-purpose", text)
+        privacy = (ROOT / "PRIVACY.md").read_text()
+        self.assertIn("does not synthesize capabilities or add credentials", privacy)
+        self.assertIn("Server-supplied descriptors are not redacted", privacy)
+        self.assertIn("not upload checkpoints or model-catalog snapshots as telemetry", privacy)
+        self.assertIn("user-directed sharing may send task context", privacy)
+
     def test_release_marketplace_manifests_and_authority_versions_align(self) -> None:
         release = json.loads(RELEASE.read_text())
         marketplace = json.loads(MARKETPLACE.read_text())
@@ -50,7 +99,7 @@ class ReleaseReadinessTests(unittest.TestCase):
             ):
                 self.assertIn(phrase, text, relative)
         setup = (ROOT / "SETUP.md").read_text()
-        self.assertIn("three-file", setup)
+        self.assertIn("seven-file", setup)
         self.assertIn("[profiles.*]", setup)
         self.assertIn("--profile cliproxy-grok-4-6", setup)
         self.assertIn("transaction", setup.lower())

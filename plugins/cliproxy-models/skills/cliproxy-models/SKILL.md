@@ -1,6 +1,6 @@
 ---
 name: cliproxy-models
-description: Configure, verify, migrate, or switch CLIProxyAPI-backed Grok 4.6 and Gemini 3.7 Flash models in Codex. Use for CLIProxyAPI, CLIPROXY_URL, CLIPROXY_API_KEY, custom providers, modern Codex profile files, or adding these models to the Codex app.
+description: Configure, verify, migrate, or switch CLIProxyAPI-backed Luna, Grok 4.6 and Gemini 3.7 Flash models in Codex. Use for CLIProxyAPI, CLIPROXY_URL, CLIPROXY_API_KEY, custom providers, modern Codex profile files, or adding these models to the Codex app.
 ---
 
 # CLIProxyAPI Models
@@ -25,11 +25,15 @@ Codex loads the base file and then overlays the selected profile file:
 ~/.codex/config.toml
 ~/.codex/cliproxy-grok-4-6.config.toml
 ~/.codex/cliproxy-gemini-3-7-flash.config.toml
+~/.codex/cliproxy-luna.config.toml
+~/.codex/luna-grok.config.toml
+~/.codex/grok-gemini.config.toml
+~/.codex/cliproxy-council-models.json
 ```
 
-The base file owns the shared provider and selected default. Each overlay owns only managed top-level `model` and `model_provider` keys while preserving unrelated settings. Never add a top-level `profile` selector or `[profiles.*]` table.
+The base file owns the shared provider and selected default. Each model overlay owns managed top-level `model` and `model_provider` keys. Named council overlays additionally own root-only `developer_instructions` for the matching shared MoA policy. Unmanaged instruction overrides in named overlays fail closed. Never add a top-level `profile` selector or `[profiles.*]` table.
 
-The setup transaction must write or migrate all three documents together with backups, mode `0600`, post-validation, idempotence, and exact rollback on failure.
+The setup transaction must write or migrate all seven documents together with backups, mode `0600`, post-validation, idempotence, and exact rollback on failure.
 
 ## Expected environment
 
@@ -43,8 +47,8 @@ Check only whether the variables are set. Never echo their values.
 ## Setup or repair
 
 1. Run `python3 <absolute-plugin-script> status`.
-2. If status reports alias ambiguity, request an explicit exact `--gemini-model` or `--grok-model`; do not guess.
-3. Run `python3 <absolute-plugin-script> [exact alias flags] setup grok|gemini` once.
+2. The seven-file two-council installation requires explicit `--gemini-model gemini-3.7-flash-high`. If the user selected another Gemini alias, explain the incompatibility and refuse; never silently replace their selection. Pure model-catalog resolution does not imply that another alias satisfies this installation.
+3. Run `python3 <absolute-plugin-script> [exact alias flags] setup grok|gemini|luna` once.
 4. Report provider ID, admitted aliases, all changed paths, backup paths, and whether the transaction was already up to date.
 5. Tell the user to fully quit and reopen Codex.
 
@@ -56,12 +60,17 @@ python3 <absolute-plugin-script> \
   setup grok
 ```
 
+Exact `gpt-5.6-luna` is required in both catalogs. Never substitute `gpt-5.6-luna-advisor`. Named sessions use `codex --profile luna-grok` or `codex --profile grok-gemini`; installing profiles does not run a council. To repair without changing an already admitted default use the bundled `install.py --default preserve` and the same explicit aliases.
+
 ## Status and switching
 
 ```bash
 python3 <absolute-plugin-script> status
 python3 <absolute-plugin-script> use grok
 python3 <absolute-plugin-script> use gemini
+python3 <absolute-plugin-script> use luna
 ```
 
-`status` is a dry-run admission and document validation. `use` changes the base default while retaining both modern overlays. `already up to date` is successful idempotence.
+`status` is a dry-run admission and document validation. `use` changes the base default while retaining all five modern overlays. `already up to date` is successful idempotence.
+
+The seventh transaction file is the owned derived Codex model catalog. Named overlays pin it with `model_catalog_json`; never fabricate model capabilities or read the user's shared model cache as alias authority. Refresh only from the two live proxy catalogs and restart the session. Keep the base default unpinned, especially when preserving an unrelated admitted model.

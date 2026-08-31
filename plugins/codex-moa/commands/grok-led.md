@@ -1,5 +1,5 @@
 ---
-description: Run a long-horizon coding task with Grok 4.6 writing and Gemini 3.7 Flash advising and reviewing.
+description: Compatibility alias for the supported grok-gemini native council.
 ---
 
-Use the `codex-moa` skill in `grok-led` mode. Resolve the exact installed model IDs first. Keep Grok as the single acting writer and Gemini as the independent localization, criticism, recovery, and final-review model unless a disjoint worker boundary is explicitly justified.
+Use the `grok-gemini` skill and shared `codex-moa` policy. New records use `council=grok-gemini` and `leader_mode=grok-gemini`, not the historical grok-led value. The actual root must be `grok-4.6`; otherwise request `codex --profile grok-gemini`.

@@ -6,7 +6,7 @@ A native Codex plugin marketplace for safely admitting multiple CLIProxyAPI-back
 
 | Plugin | Version in bundle 2.0.0 | Purpose |
 |---|---:|---|
-| `cliproxy-models` | 1.1.0 | Admit exact Grok 4.6 and Gemini 3.7 Flash IDs, configure one CLIProxyAPI provider, and maintain modern Codex profile overlay files. |
+| `cliproxy-models` | 1.1.0 | Admit exact Luna, Grok 4.6 and Gemini 3.7 Flash IDs, configure one CLIProxyAPI provider, and maintain modern Codex profile overlay files. |
 | `codex-moa` | 2.0.0 | Run bounded model-diverse councils with native Codex agents and immutable checkpoint MCP state. |
 
 Neither plugin requires Hermes or introduces another orchestration runtime. CLIProxyAPI remains the sole authority for upstream accounts, OAuth sessions, credentials, quotas, health, retries, and failover.
@@ -26,15 +26,19 @@ The plugins never enumerate proxy account files and never print or persist the k
 
 ## Modern Codex profiles
 
-Codex 0.134.0 and later load the base configuration and then overlay a separate profile file. `cliproxy-models` 1.1.0 therefore maintains this three-document state:
+Codex 0.134.0 and later load the base configuration and then overlay a separate profile file. `cliproxy-models` 1.1.0 therefore maintains this seven-document state:
 
 ```text
 ~/.codex/config.toml
 ~/.codex/cliproxy-grok-4-6.config.toml
 ~/.codex/cliproxy-gemini-3-7-flash.config.toml
+~/.codex/cliproxy-luna.config.toml
+~/.codex/luna-grok.config.toml
+~/.codex/grok-gemini.config.toml
+~/.codex/cliproxy-council-models.json
 ```
 
-The base file contains the single provider and selected top-level default `model` / `model_provider`. Each overlay contains top-level `model` and `model_provider`. The plugin removes only its own managed legacy tables and never leaves a managed top-level `profile` selector or `[profiles.*]` table.
+The base file contains the single provider and selected top-level default `model` / `model_provider`. Each overlay contains top-level `model` and `model_provider`; named council overlays also bind root-only `developer_instructions` to the matching shared MoA policy. The plugin removes only its own managed legacy tables and never leaves a managed top-level `profile` selector or `[profiles.*]` table.
 
 All changed documents form one backup-aware, mode-`0600`, atomic, post-validated transaction. Any partial write or validation failure restores exact original bytes and modes. Unmanaged collisions, malformed files, and symlinks fail before mutation.
 
@@ -43,12 +47,16 @@ All changed documents form one backup-aware, mode-`0600`, atomic, post-validated
 The authoritative VPS2 catalog contains:
 
 ```text
+gpt-5.6-luna
+gpt-5.6-luna-advisor
 grok-4.6
 gemini-3.7-flash-high
 gemini-3.7-flash-advisor
 ```
 
 There is no bare `gemini-3.7-flash`. Automatic Gemini selection must refuse. Choose an exact ID only when it is present in both CLIProxyAPI catalogs:
+
+This seven-file two-council installation requires explicit `--gemini-model gemini-3.7-flash-high`. A different admitted Gemini alias, including `gemini-3.7-flash-advisor`, is refused before mutation because it cannot satisfy the advertised `grok-gemini` contract. Setup never silently substitutes High.
 
 ```text
 @cliproxy-models Set up CLIProxyAPI models with --gemini-model gemini-3.7-flash-high and use Grok by default.
@@ -57,6 +65,7 @@ There is no bare `gemini-3.7-flash`. Automatic Gemini selection must refuse. Cho
 Modern profile usage after setup:
 
 ```bash
+codex exec --profile cliproxy-luna 'Reply with LUNA_PROFILE_OK'
 codex exec --profile cliproxy-grok-4-6 'Reply with GROK_PROFILE_OK'
 codex exec --profile cliproxy-gemini-3-7-flash 'Reply with GEMINI_PROFILE_OK'
 ```
@@ -70,17 +79,19 @@ codex exec --profile cliproxy-gemini-3-7-flash 'Reply with GEMINI_PROFILE_OK'
 <cache>/cliproxy/codex-moa/2.0.0 + <cache>/cliproxy/cliproxy-models/1.1.0
 ```
 
-The native preflight reads the base provider and both sibling profile overlays. It selects only the exact pinned authority version and refuses missing, incompatible, malformed, or multiply located authorities.
+The native preflight reads the base provider, three model overlays, and selected named council overlay. It selects only the exact pinned authority version and refuses missing, incompatible, malformed, or multiply located authorities.
 
 ## Native council
 
 ```text
-@codex-moa Run this repository task with a Grok-led native council.
-@codex-moa Run this repository task with a Gemini-led native council.
+$luna-grok Implement this repository task with Luna writing and Grok reviewing.
+$grok-gemini Implement this repository task with Grok writing and Gemini High reviewing.
 @codex-moa Resume checkpoint <handle>.
 ```
 
-The policy uses repository localization, one accepted plan, one writer by default, opposite-model criticism at high-leverage gates, validation-led bounded recovery, independent final review, and compact immutable checkpoints.
+Start a matching root with `codex --profile luna-grok` or `codex --profile grok-gemini`. Skills cannot change the current root model. Exact `gpt-5.6-luna` must appear in both catalogs; `-advisor` is not a substitute. Gemini-led is unsupported and refused for new runs.
+
+The policy uses repository localization, one accepted plan, one writer by default, opposite-model criticism at high-leverage gates, validation-led bounded recovery, independent final review, and compact immutable checkpoints. Schema-2 completion requires structured native reviewer witnesses and passing gates; witnesses are agent-submitted claims, so actual native event transcripts must be independently checked. Historical schema-1 records remain readable, not writable.
 
 ## Evidence and release status
 
@@ -107,3 +118,9 @@ git diff --check
 ```
 
 See [SETUP.md](SETUP.md), [AGENTS.md](AGENTS.md), [agent.md](agent.md), [SECURITY.md](SECURITY.md), and [docs/RELEASING.md](docs/RELEASING.md).
+
+## Stable native council catalog
+
+Named council overlays own `model_catalog_json`, pointing at the transaction-managed `cliproxy-council-models.json` beside the base config. It contains the exact three admitted models with the original live Codex-catalog metadata; capabilities are never synthesized. The JSON ownership marker is `_codex_cliproxy_models: 1`. Unmanaged or malformed JSON, duplicates/missing models, unsafe paths, and concurrent changes fail closed. The seventh file shares backups, mode 0600, post-validation, idempotence and exact rollback with all six TOML documents.
+
+This derived startup snapshot keeps native subagent model selection independent of mutable shared catalog-cache entries. It is not a second alias authority: preflight still reads both live proxy catalogs and refuses stale snapshot metadata. The base default is not pinned to this three-model snapshot, so an unrelated admitted default is preserved by `--default preserve`. Restart Codex after setup/catalog refresh.

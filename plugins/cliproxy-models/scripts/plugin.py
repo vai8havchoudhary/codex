@@ -45,15 +45,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config", type=Path)
     parser.add_argument("--grok-model")
     parser.add_argument("--gemini-model")
+    parser.add_argument("--luna-model")
     parser.add_argument("--models-response-file", type=Path)
     parser.add_argument("--codex-models-response-file", type=Path)
     parser.add_argument("--timeout", type=float, default=5.0)
     subparsers = parser.add_subparsers(dest="command", required=True)
     subparsers.add_parser("status", help="validate catalogs without changing the active Codex provider")
     setup = subparsers.add_parser("setup", help="install or repair the managed provider and profiles")
-    setup.add_argument("model", choices=("grok", "gemini"), nargs="?", default="grok")
+    setup.add_argument("model", choices=("grok", "gemini", "luna"), nargs="?", default="grok")
     use = subparsers.add_parser("use", help="switch the default model for new Codex sessions")
-    use.add_argument("model", choices=("grok", "gemini"))
+    use.add_argument("model", choices=("grok", "gemini", "luna"))
     return parser
 
 
@@ -71,6 +72,7 @@ def installer_args(args: argparse.Namespace) -> list[str]:
     for flag, value in (
         ("--grok-model", args.grok_model),
         ("--gemini-model", args.gemini_model),
+        ("--luna-model", args.luna_model),
         ("--models-response-file", args.models_response_file),
         ("--codex-models-response-file", args.codex_models_response_file),
     ):
