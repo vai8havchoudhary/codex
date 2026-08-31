@@ -5,6 +5,8 @@ import io
 import json
 import os
 import stat
+import subprocess
+import sys
 import tempfile
 import tomllib
 import unittest
@@ -19,6 +21,58 @@ import test_transaction as fixtures
 
 
 class NamedCouncilTests(unittest.TestCase):
+    def test_explicit_advisor_setup_refuses_without_mutation_or_backups(self):
+        for existing in (False, True):
+            with self.subTest(existing=existing), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                config, args = self.fixture(root)
+                if existing:
+                    self.assertEqual(self.run_install(args)[0], 0)
+                before = {path.name: path.read_bytes() for path in root.iterdir() if path.name not in {"openai.json", "codex.json"}}
+                ids = (*catalog.CATALOG_MODELS, "gemini-3.7-flash-advisor")
+                (root / "openai.json").write_text(json.dumps({"data": [{"id": model} for model in ids]}))
+                (root / "codex.json").write_text(json.dumps({"models": [{"slug": model} for model in ids]}))
+                self.assertEqual(catalog.resolve_models(catalog.Catalogs(ids, ids), gemini="gemini-3.7-flash-advisor").gemini,
+                                 "gemini-3.7-flash-advisor")
+                args[args.index("--gemini-model") + 1] = "gemini-3.7-flash-advisor"
+                code, _out, error = self.run_install(args)
+                self.assertEqual(code, 2)
+                self.assertIn("requires --gemini-model gemini-3.7-flash-high", error)
+                self.assertEqual(before, {path.name: path.read_bytes() for path in root.iterdir() if path.name not in {"openai.json", "codex.json"}})
+                self.assertFalse(list(root.glob("*.bak.*")))
+
+    def test_explicit_high_install_satisfies_both_advertised_council_preflights(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config, args = self.fixture(root)
+            self.assertEqual(self.run_install(args)[0], 0)
+            preflight = Path(__file__).resolve().parents[2] / "codex-moa/scripts/preflight.py"
+            for name, (leader, advisor) in catalog.COUNCILS.items():
+                with self.subTest(council=name):
+                    result = subprocess.run([
+                        sys.executable, str(preflight), "--config", str(config),
+                        "--council", name, "--leader-model", leader,
+                        "--gemini-model", "gemini-3.7-flash-high",
+                        "--models-response-file", str(root / "openai.json"),
+                        "--codex-models-response-file", str(root / "codex.json"), "--json",
+                    ], capture_output=True, text=True, check=False)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    receipt = json.loads(result.stdout)
+                    self.assertEqual((receipt["council"], receipt["leader_model"], receipt["advisor_model"]),
+                                     (name, leader, advisor))
+
+    def test_post_validator_also_enforces_canonical_gemini_installation(self):
+        import config_edit
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config, args = self.fixture(root)
+            self.assertEqual(self.run_install(args)[0], 0)
+            states = [config_edit.read_state(path, "fixture") for path in [config, *(root / f"{name}.config.toml" for name in catalog.PROFILE_NAMES), root / catalog.MODEL_CATALOG_FILE]]
+            plans = [config_edit.PlannedFile(state, state.content) for state in states]
+            provider = catalog.Provider("cliproxyapi", "CLIProxyAPI", "http://127.0.0.1:8317/v1", "CLIPROXY_API_KEY", False)
+            with self.assertRaisesRegex(catalog.InstallError, "requires --gemini-model"):
+                install._post_validate(plans, provider, catalog.Models("grok-4.6", "gemini-3.7-flash-advisor"), True)
+
     def test_derived_catalog_retains_live_metadata_without_synthesis(self):
         entries = tuple({"slug": model, "context_window": 123456,
                          "custom_capability": {"nested": ["untouched", 42]}, "base_instructions": "live metadata"}
@@ -108,7 +162,7 @@ class NamedCouncilTests(unittest.TestCase):
         helper = fixtures.EndToEndTests()
         config = root / "config.toml"
         openai, codex = helper._offline_files(root)
-        return config, helper._args(config, openai, codex)
+        return config, helper._args(config, openai, codex) + ["--api-key-env", "CLIPROXY_API_KEY"]
 
     def run_install(self, args):
         output, errors = io.StringIO(), io.StringIO()
@@ -157,7 +211,7 @@ class NamedCouncilTests(unittest.TestCase):
     def test_luna_default_and_wrapper_dispatch(self):
         with tempfile.TemporaryDirectory() as tmp:
             config, args = self.fixture(Path(tmp))
-            args[-1] = "luna"
+            args[args.index("--default") + 1] = "luna"
             self.assertEqual(self.run_install(args)[0], 0)
             self.assertEqual(tomllib.loads(config.read_text())["model"], catalog.LUNA_MODEL)
         for command in ("setup", "use"):

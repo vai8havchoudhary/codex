@@ -42,6 +42,8 @@ No user home path is hardcoded. Remove obsolete `hermes-moa@cliproxy` when upgra
 
 VPS2 exports `grok-4.6`, `gemini-3.7-flash-high`, and `gemini-3.7-flash-advisor`, but no bare Gemini alias. Automatic setup must refuse the two matching Gemini routes.
 
+The seven-file two-council installation accepts only explicit `--gemini-model gemini-3.7-flash-high`. Requesting the Advisor alias is refused before mutation, even if it appears in both catalogs; setup does not silently substitute High. Pure catalog resolution can still identify other exact aliases, but they do not satisfy this installation contract.
+
 Example explicit setup:
 
 ```bash
@@ -145,7 +147,7 @@ Upgrade/reinstall `cliproxy-models` 1.1.0 and rerun setup. Do not manually recre
 
 ### Automatic Gemini setup reports ambiguity
 
-Expected for the VPS2 `-high` / `-advisor` catalog. Pass one exact common alias explicitly.
+Expected for the VPS2 `-high` / `-advisor` catalog. Pass `--gemini-model gemini-3.7-flash-high` explicitly for the supported two-council installation; any other requested Gemini alias is refused before writing files.
 
 ### Preflight cannot locate model authority
 

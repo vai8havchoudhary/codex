@@ -11,6 +11,8 @@ All notable user-visible changes are documented here. Versions follow semantic v
 - Refused unsupported Gemini-led new runs and added schema-2 native final-review witnesses with identity-bound chains; schema-1 history remains readable.
 - Reduced redundant council work: reuse one localizer/critic and reserve a proven read-only final reviewer before editing.
 - Retained untagged 2.0.0 candidate and 1.1.0 authority versions: correctness correction, not cachebuster churn. No tag/release or stale promotion branch changed.
+- Aligned final-review instructions with `APPROVE` / `REQUEST_CHANGES`, preserving negative review evidence without allowing completion.
+- Fail closed before mutation when the two-council installation is asked to use a noncanonical Gemini alias; refreshed public security/privacy disclosures for all seven local artifacts and unauthenticated native witness claims.
 
 ## [2.0.0] - 2026-08-30
 

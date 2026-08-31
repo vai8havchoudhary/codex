@@ -56,6 +56,8 @@ gemini-3.7-flash-advisor
 
 There is no bare `gemini-3.7-flash`. Automatic Gemini selection must refuse. Choose an exact ID only when it is present in both CLIProxyAPI catalogs:
 
+This seven-file two-council installation requires explicit `--gemini-model gemini-3.7-flash-high`. A different admitted Gemini alias, including `gemini-3.7-flash-advisor`, is refused before mutation because it cannot satisfy the advertised `grok-gemini` contract. Setup never silently substitutes High.
+
 ```text
 @cliproxy-models Set up CLIProxyAPI models with --gemini-model gemini-3.7-flash-high and use Grok by default.
 ```

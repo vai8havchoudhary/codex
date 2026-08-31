@@ -26,6 +26,7 @@ from catalog import (
     MODEL_CATALOG_FILE,
     render_model_catalog,
     validate_model_catalog,
+    validate_council_installation,
     BEGIN,
     END,
     Catalogs,
@@ -103,6 +104,7 @@ def _effective_documents(
     default_model: str | None,
     catalogs: Catalogs,
 ) -> tuple[list[PlannedFile], ConfigDocuments]:
+    validate_council_installation(models)
     states = [read_state(profile_path(config, name), f"Codex profile {name}") for name in PROFILE_NAMES]
     catalog_path = config.parent.resolve() / MODEL_CATALOG_FILE
     catalog_state = read_state(catalog_path, "managed council model catalog")

@@ -222,6 +222,12 @@ def resolve_models(catalogs: Catalogs, grok: str | None = None, gemini: str | No
     return Models(resolved_grok, resolved_gemini, LUNA_MODEL)
 
 
+def validate_council_installation(models: Models) -> None:
+    if models.gemini != COUNCILS["grok-gemini"][1]:
+        raise InstallError("two-council installation requires --gemini-model gemini-3.7-flash-high; "
+                           f"requested {models.gemini!r}. Other Gemini aliases cannot satisfy grok-gemini; no silent substitution is allowed")
+
+
 def council_instructions(name: str) -> str:
     leader, reviewer = COUNCILS[name]
     return (f"ROOT SESSION ONLY: For the user's repository task use the installed codex-moa {name} skill and its shared policy. "

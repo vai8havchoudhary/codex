@@ -14,6 +14,7 @@ from catalog import (
     LUNA_PROFILE,
     COUNCILS,
     council_instructions,
+    validate_council_installation,
     InstallError,
     Models,
     Provider,
@@ -291,6 +292,7 @@ def validate_documents(
     catalog_path: Path,
 ) -> None:
     base = parse_toml(documents.base, "base config.toml")
+    validate_council_installation(models)
     _legacy_profile_error(base, "base config.toml")
     providers = base.get("model_providers")
     if not isinstance(providers, Mapping):

@@ -90,6 +90,23 @@ class NamedPreflightTests(PreflightTestCase):
 
 
 class WitnessTests(unittest.TestCase):
+    def test_shipped_review_instructions_and_negative_verdict_storage_agree(self):
+        plugin = Path(__file__).resolve().parents[1]
+        for relative in ("commands/review.md", "agents/verifier.md", "skills/codex-moa/SKILL.md"):
+            with self.subTest(instructions=relative):
+                text = (plugin / relative).read_text()
+                self.assertIn("APPROVE", text)
+                self.assertIn("REQUEST_CHANGES", text)
+                self.assertNotIn("APPROVE or BLOCK", text)
+                self.assertNotIn("APPROVE|BLOCK", text)
+        with tempfile.TemporaryDirectory() as tmp:
+            store = server.CheckpointStore(Path(tmp))
+            review = checkpoint(phase="review", native_agents=[witness(verdict="REQUEST_CHANGES")])
+            record, _ = store.put(review)
+            self.assertEqual(store.get(record["handle"])["checkpoint"]["native_agents"][0]["verdict"], "REQUEST_CHANGES")
+            with self.assertRaisesRegex(server.StoreError, "APPROVE"):
+                store.put(dict(review, phase="complete", status="complete", previous=record["handle"]))
+
     def test_checkpoint_and_model_authority_council_contracts_agree(self):
         import checkpoint_schema
         catalog, _ = preflight.load_authority()

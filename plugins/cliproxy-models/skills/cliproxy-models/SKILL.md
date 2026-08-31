@@ -47,7 +47,7 @@ Check only whether the variables are set. Never echo their values.
 ## Setup or repair
 
 1. Run `python3 <absolute-plugin-script> status`.
-2. If status reports alias ambiguity, request an explicit exact `--gemini-model` or `--grok-model`; do not guess.
+2. The seven-file two-council installation requires explicit `--gemini-model gemini-3.7-flash-high`. If the user selected another Gemini alias, explain the incompatibility and refuse; never silently replace their selection. Pure model-catalog resolution does not imply that another alias satisfies this installation.
 3. Run `python3 <absolute-plugin-script> [exact alias flags] setup grok|gemini|luna` once.
 4. Report provider ID, admitted aliases, all changed paths, backup paths, and whether the transaction was already up to date.
 5. Tell the user to fully quit and reopen Codex.
