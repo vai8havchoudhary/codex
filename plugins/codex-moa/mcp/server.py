@@ -29,6 +29,7 @@ from checkpoint_schema import (  # noqa: E402
     CheckpointError,
     checkpoint_digest,
     validate_checkpoint,
+    validate_new_write_policy,
 )
 
 SERVER_NAME = "codex-moa-checkpoints"
@@ -169,6 +170,11 @@ class CheckpointStore:
             ):
                 return record, False
 
+        try:
+            validate_new_write_policy(checkpoint, records)
+        except CheckpointError as exc:
+            raise StoreError(str(exc)) from exc
+
         if len(records) >= MAX_CHECKPOINTS:
             raise StoreError(f"checkpoint store reached the {MAX_CHECKPOINTS} record safety limit")
 
@@ -277,15 +283,41 @@ def tool_definitions() -> list[dict[str, Any]]:
             "status": {"type": "string", "enum": ["active", "complete", "blocked"]},
             "leader_mode": {"type": "string", "enum": ["luna-grok", "grok-gemini"]},
             "council": {"type": "string", "enum": ["luna-grok", "grok-gemini"]},
-            "native_agents": {"type": "array", "maxItems": 4, "items": {"type": "object"}, "description": "Observed native agent witnesses: role, model, actual agent_id, verdict (OBSERVED/APPROVE/REQUEST_CHANGES), summary of returned response, transcript_ref; reviewer also requires reviewed_revision. Agent-submitted evidence is not cryptographically authenticated."},
+            "native_agents": {"type": "array", "maxItems": 4, "items": {
+                "type": "object", "additionalProperties": False,
+                "required": ["role", "model", "agent_id", "verdict", "summary", "transcript_ref"],
+                "properties": {
+                    "role": {"type": "string", "enum": ["localizer", "critic", "reviewer", "recovery"]},
+                    "model": {"type": "string", "minLength": 1, "maxLength": 128, "description": "Exact council advisor model, not the root model."},
+                    "agent_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{15,127}$"},
+                    "verdict": {"type": "string", "enum": ["OBSERVED", "APPROVE", "REQUEST_CHANGES"]},
+                    "summary": {"type": "string", "minLength": 1, "maxLength": 2048},
+                    "transcript_ref": {"type": "string", "minLength": 1, "maxLength": 2048},
+                    "reviewed_revision": {"type": "string", "minLength": 1, "maxLength": 256,
+                                          "description": "Required for role=reviewer: exact final revision or diff SHA-256."},
+                }}, "description": "Observed native responses, not cryptographically authenticated. Gemini final reviewer must be fresh and distinct from all earlier same-run gate agents; carry its review witness unchanged to complete."},
             "leader_model": {"type": "string", "minLength": 1, "maxLength": 256},
             "advisor_models": {"type": "array", "maxItems": 4, "items": {"type": "string"}},
             "constraints": {"type": "array", "maxItems": 64, "items": {"type": "string"}},
             "decisions": {"type": "array", "maxItems": 64, "items": {"type": "string"}},
-            "evidence": {"type": "array", "maxItems": 96, "items": {"type": "object"}},
+            "evidence": {"type": "array", "maxItems": 96, "items": {
+                "type": "object", "additionalProperties": False, "required": ["kind", "summary"],
+                "properties": {
+                    "kind": {"type": "string", "minLength": 1, "maxLength": 128},
+                    "summary": {"type": "string", "minLength": 1, "maxLength": 2048},
+                    "command": {"type": "string", "minLength": 1, "maxLength": 2048},
+                    "exit_code": {"type": ["integer", "null"]},
+                }}, "description": "Compact evidence only. For Gemini packets put packet SHA-256, semantic gate, attempt number, fresh status and native response reference in summary, not extra keys."},
             "owned_paths": {"type": "array", "maxItems": 256, "items": {"type": "string"}},
             "changed_paths": {"type": "array", "maxItems": 256, "items": {"type": "string"}},
-            "validation": {"type": "array", "maxItems": 96, "items": {"type": "object"}},
+            "validation": {"type": "array", "maxItems": 96, "items": {
+                "type": "object", "additionalProperties": False, "required": ["command", "status", "summary"],
+                "properties": {
+                    "command": {"type": "string", "minLength": 1, "maxLength": 2048},
+                    "status": {"type": "string", "enum": ["pending", "pass", "fail", "skipped"]},
+                    "summary": {"type": "string", "minLength": 1, "maxLength": 2048},
+                    "exit_code": {"type": ["integer", "null"]},
+                }}, "description": "Executed repository gate evidence; complete requires pass and exit_code=0 for every required gate."},
             "risks": {"type": "array", "maxItems": 64, "items": {"type": "string"}},
             "next_action": {"type": "string", "minLength": 1, "maxLength": 4000},
             "retry_budget": {"type": "integer", "minimum": 0, "maximum": 2},

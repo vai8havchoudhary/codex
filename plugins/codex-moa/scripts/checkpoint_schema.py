@@ -252,7 +252,44 @@ def validate_checkpoint(raw: Any, *, allow_legacy: bool = False) -> dict[str, An
         raise CheckpointError("complete status requires phase=complete")
     if clean["status"] == "blocked" and clean["phase"] != "blocked":
         raise CheckpointError("blocked status requires phase=blocked")
+    if not allow_legacy:
+        validate_new_write_policy(clean)
     return clean
+
+
+def validate_new_write_policy(checkpoint: Mapping[str, Any], history: Sequence[Mapping[str, Any]] = ()) -> None:
+    """New-write lifecycle rules only; never change historical canonicalization.
+
+    IDs and verdicts remain caller-supplied claims, not authenticated attestations.
+    The store supplies all same-run records, not just the caller's previous link.
+    """
+    if checkpoint.get("council") != "grok-gemini":
+        return
+    agents = checkpoint.get("native_agents", [])
+    reviewers = [agent for agent in agents if agent["role"] == "reviewer"]
+    for reviewer in reviewers:
+        if checkpoint["phase"] not in {"review", "complete"}:
+            raise CheckpointError("Gemini final reviewer must be fresh at review, not reserved at an earlier gate")
+        if any(agent["agent_id"] == reviewer["agent_id"] and agent["role"] != "reviewer" for agent in agents):
+            raise CheckpointError("Gemini final reviewer must be distinct from every other gate agent")
+        for record in history:
+            prior = record["checkpoint"]
+            if prior["run_id"] != checkpoint["run_id"]:
+                continue
+            matches = [agent for agent in prior.get("native_agents", []) if agent["agent_id"] == reviewer["agent_id"]]
+            if not matches:
+                continue
+            if any(agent["role"] != "reviewer" for agent in matches):
+                raise CheckpointError("Gemini final reviewer reuses an earlier same-run gate agent")
+            # Exact idempotent writes and the reviewed witness carried to complete
+            # are continuations of a stored result, not a new agent invocation.
+            if checkpoint_digest(prior) == checkpoint_digest(checkpoint):
+                continue
+            if (checkpoint["phase"] == "complete" and prior["phase"] == "review"
+                    and checkpoint.get("previous") == record["handle"]
+                    and prior.get("native_agents") == agents):
+                continue
+            raise CheckpointError("Gemini final reviewer must be fresh; earlier reviewer/READY IDs cannot be reused")
 
 
 def canonical_json(value: Mapping[str, Any]) -> bytes:

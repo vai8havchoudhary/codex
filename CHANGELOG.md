@@ -9,7 +9,9 @@ All notable user-visible changes are documented here. Versions follow semantic v
 - Added canonical `luna-grok` and `grok-gemini` profiles, skills, and commands in the existing two-plugin bundle; no additional runtime.
 - Admitted exact `gpt-5.6-luna` through both catalogs, with standalone setup/use and a guarded seven-file transaction: six TOMLs and a live-derived model-catalog snapshot. Named profiles pin native model metadata without changing the base default's catalog.
 - Refused unsupported Gemini-led new runs and added schema-2 native final-review witnesses with identity-bound chains; schema-1 history remains readable.
-- Reduced redundant council work: reuse one localizer/critic and reserve a proven read-only final reviewer before editing.
+- Reduced redundant Luna council work: reuse one localizer/critic and reserve a proven read-only final reviewer before editing.
+- Split Gemini into fresh single-turn evidence-only native plan criticism and final review, with complete packets, bounded transport retries and explicit evidence limitations; no claim to fix Gemini continuation. Luna generated instructions are unchanged.
+- Enforced fresh Gemini final-reviewer IDs for new writes across same-run history while preserving historical schema-1/schema-2 digests; exposed precise MCP evidence/validation/native witness item schemas without changing stored shapes.
 - Retained untagged 2.0.0 candidate and 1.1.0 authority versions: correctness correction, not cachebuster churn. No tag/release or stale promotion branch changed.
 - Aligned final-review instructions with `APPROVE` / `REQUEST_CHANGES`, preserving negative review evidence without allowing completion.
 - Fail closed before mutation when the two-council installation is asked to use a noncanonical Gemini alias; refreshed public security/privacy disclosures for all seven local artifacts and unauthenticated native witness claims.

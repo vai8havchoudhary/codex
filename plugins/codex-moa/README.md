@@ -60,15 +60,21 @@ The current VPS2 catalog exposes both `gemini-3.7-flash-high` and `gemini-3.7-fl
 
 ## Native council policy
 
-- configuration admission alone does not prove native delegation; establish two actual opposite-model responses before writing;
-- reserve one independent final reviewer and reuse the localizer for plan criticism;
+- configuration admission alone does not prove native delegation; require substantive opposite-model plan criticism before writing;
+- Luna retains read-only tool-capable Grok agents: reuse the localizer/critic and reserve the final reviewer;
+- Grok gathers source itself; Gemini reviewed supplied evidence only, using a fresh single-turn critic and distinct fresh final reviewer with NO tools, READY reservation, send_input, follow-ups or history reuse;
+- each Gemini initial packet contains complete bounded requirements, relevant full source/resulting files, plan or complete final diff, revision, gate commands/results/exit codes, rubric and known risks; stop if material evidence cannot fit;
+- await each actual verdict and close; one primary plus at most one fresh transport retry per semantic gate, at most five minutes total waiting; exhausted capability failures block, while REQUEST_CHANGES is stored and permits only bounded implementation repair;
+- record packet SHA-256, gate, attempt, fresh status and native reference inside existing evidence summaries; this is not a packet runner or a fix for Gemini continuation;
 - root thread coordinates and is the default single writer;
-- opposite-model agents localize, critique plans, analyze concrete failures, and independently review;
+- opposite-model agents critique plans, analyze concrete failures and independently assess final evidence; only Luna's Grok agents perform filesystem localization;
 - repository-native validation is authoritative;
 - recovery is bounded to two coherent rounds per blocker;
 - the bundled MCP stores compact immutable checkpoints only and receives only `CODEX_HOME`.
 
 New schema-2 completion requires exact council/model identity, actual-shaped native agent witness fields, a returned final review approval and passing repository gates. These are model-submitted claims, not cryptographic attestation: independently verify native runtime events. Schema-1 checkpoint digests and read access remain compatible; new writes/resumption require a new schema-2 run.
+
+New Gemini writes reject final reviewer IDs used in any earlier same-run gate, even when omitted from the new payload. An unchanged review witness may carry into complete. Shape-valid historical schema-2 records retain their original digest and readability; stronger new-write policy does not retroactively reject history. Luna reuse is unchanged.
 
 See `skills/codex-moa/SKILL.md` and `references/long-horizon-research.md`.
 
